@@ -1,0 +1,313 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Hồ sơ người dùng trong hệ thống trường học thông minh",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Mã định danh người dùng (khớp với Firebase Auth UID)",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Họ và tên",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Địa chỉ email",
+          "maxLength": 150
+        },
+        "role": {
+          "type": "string",
+          "description": "Vai trò trong hệ thống",
+          "enum": ["admin", "teacher", "student", "parent"]
+        },
+        "avatar": {
+          "type": "string",
+          "description": "Đường dẫn ảnh đại diện",
+          "maxLength": 500
+        },
+        "schoolName": {
+          "type": "string",
+          "description": "Tên trường",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Thời gian tạo hồ sơ",
+          "maxLength": 50
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Thời gian cập nhật",
+          "maxLength": 50
+        }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "Câu hỏi trong ngân hàng câu hỏi thông minh",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Mã câu hỏi định danh duy nhất",
+          "maxLength": 128
+        },
+        "code": {
+          "type": "string",
+          "description": "Mã hiển thị (VD: Q-10-TOAN-001)",
+          "maxLength": 64
+        },
+        "subject": {
+          "type": "string",
+          "description": "Môn học",
+          "maxLength": 100
+        },
+        "gradeLevel": {
+          "type": "number",
+          "description": "Khối lớp (1 - 12)"
+        },
+        "className": {
+          "type": "string",
+          "description": "Lớp học cụ thể nếu có",
+          "maxLength": 50
+        },
+        "chapter": {
+          "type": "string",
+          "description": "Chương hoặc chuyên đề",
+          "maxLength": 200
+        },
+        "topic": {
+          "type": "string",
+          "description": "Chủ đề / Bài học",
+          "maxLength": 200
+        },
+        "type": {
+          "type": "string",
+          "description": "Dạng câu hỏi",
+          "enum": ["single_choice", "multiple_choice", "true_false", "fill_blank", "essay"]
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "Mức độ nhận thức",
+          "enum": ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Trạng thái kiểm duyệt",
+          "enum": ["approved", "pending", "draft", "rejected", "archived"]
+        },
+        "content": {
+          "type": "string",
+          "description": "Nội dung câu hỏi",
+          "maxLength": 10000
+        },
+        "authorId": {
+          "type": "string",
+          "description": "UID người tạo câu hỏi",
+          "maxLength": 128
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Tên người tạo câu hỏi",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Thời gian tạo",
+          "maxLength": 50
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Thời gian cập nhật",
+          "maxLength": 50
+        }
+      },
+      "required": ["id", "code", "subject", "gradeLevel", "type", "difficulty", "status", "content", "authorId"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "Lớp học",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Mã lớp",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Tên lớp",
+          "maxLength": 50
+        },
+        "grade": {
+          "type": "number",
+          "description": "Khối lớp"
+        },
+        "homeroomTeacherId": {
+          "type": "string",
+          "description": "Mã GVCN",
+          "maxLength": 128
+        },
+        "homeroomTeacherName": {
+          "type": "string",
+          "description": "Tên GVCN",
+          "maxLength": 100
+        },
+        "room": {
+          "type": "string",
+          "description": "Phòng học",
+          "maxLength": 50
+        },
+        "academicYear": {
+          "type": "string",
+          "description": "Năm học",
+          "maxLength": 50
+        }
+      },
+      "required": ["id", "name", "grade"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Tiết học trong thời khóa biểu",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Mã tiết",
+          "maxLength": 128
+        },
+        "classId": {
+          "type": "string",
+          "description": "Mã lớp",
+          "maxLength": 128
+        },
+        "className": {
+          "type": "string",
+          "description": "Tên lớp",
+          "maxLength": 50
+        },
+        "dayOfWeek": {
+          "type": "number",
+          "description": "Thứ trong tuần (2 - 8)"
+        },
+        "period": {
+          "type": "number",
+          "description": "Tiết học (1 - 10)"
+        },
+        "timeRange": {
+          "type": "string",
+          "description": "Khung giờ học",
+          "maxLength": 50
+        },
+        "subject": {
+          "type": "string",
+          "description": "Môn học",
+          "maxLength": 100
+        },
+        "teacherName": {
+          "type": "string",
+          "description": "Tên giáo viên",
+          "maxLength": 100
+        },
+        "room": {
+          "type": "string",
+          "description": "Phòng học",
+          "maxLength": 50
+        }
+      },
+      "required": ["id", "dayOfWeek", "period", "subject"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Thông báo nhà trường và lớp học",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Mã thông báo",
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "description": "Tiêu đề thông báo",
+          "maxLength": 255
+        },
+        "content": {
+          "type": "string",
+          "description": "Nội dung thông báo",
+          "maxLength": 10000
+        },
+        "category": {
+          "type": "string",
+          "description": "Phân loại",
+          "maxLength": 50
+        },
+        "authorId": {
+          "type": "string",
+          "description": "Mã người đăng",
+          "maxLength": 128
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Tên người đăng",
+          "maxLength": 100
+        },
+        "targetRole": {
+          "type": "string",
+          "description": "Đối tượng nhận thông báo",
+          "maxLength": 50
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Thời gian tạo",
+          "maxLength": 50
+        }
+      },
+      "required": ["id", "title", "content", "authorId"]
+    },
+    "TestConnection": {
+      "title": "TestConnection",
+      "description": "Tài liệu kiểm tra kết nối Firestore",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Trạng thái kết nối",
+          "maxLength": 50
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Lưu trữ hồ sơ người dùng trong hệ thống"
+    },
+    "/questions/{questionId}": {
+      "schema": "Question",
+      "description": "Lưu trữ câu hỏi trong Ngân hàng câu hỏi"
+    },
+    "/classes/{classId}": {
+      "schema": "Class",
+      "description": "Lưu trữ danh sách lớp học"
+    },
+    "/schedules/{scheduleId}": {
+      "schema": "Schedule",
+      "description": "Lưu trữ các mục thời khóa biểu"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Lưu trữ thông báo toàn trường và theo lớp"
+    },
+    "/test/{testId}": {
+      "schema": "TestConnection",
+      "description": "Kiểm tra kết nối tới Cloud Firestore"
+    }
+  }
+}

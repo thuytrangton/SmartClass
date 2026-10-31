@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+@layer base {
+  html,
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #060913;
+    color: #f1f5f9;
+    color-scheme: dark;
+  }
+}
+
+/* Global Dark Theme Adaptation for all pages and components */
+.dark-theme .bg-white,
+.dark-theme .bg-white\/95,
+.dark-theme .bg-white\/90,
+.dark-theme .bg-white\/80 {
+  background-color: #0f172a !important;
+}
+
+.dark-theme .bg-slate-50,
+.dark-theme .bg-slate-50\/80,
+.dark-theme .bg-slate-50\/60,
+.dark-theme .bg-slate-50\/50 {
+  background-color: #0b1324 !important;
+}
+
+.dark-theme .bg-slate-100,
+.dark-theme .bg-slate-100\/80 {
+  background-color: #1e293b !important;
+}
+
+.dark-theme .bg-slate-200 {
+  background-color: #334155 !important;
+}
+
+/* Soft tinted surfaces in dark mode */
+.dark-theme .bg-blue-50,
+.dark-theme .bg-blue-50\/70,
+.dark-theme .bg-blue-50\/50,
+.dark-theme .bg-blue-100 {
+  background-color: rgba(8, 51, 68, 0.45) !important;
+}
+
+.dark-theme .bg-emerald-50,
+.dark-theme .bg-emerald-50\/50,
+.dark-theme .bg-emerald-100 {
+  background-color: rgba(6, 78, 59, 0.4) !important;
+}
+
+.dark-theme .bg-amber-50,
+.dark-theme .bg-amber-50\/50,
+.dark-theme .bg-amber-100 {
+  background-color: rgba(120, 53, 15, 0.4) !important;
+}
+
+.dark-theme .bg-rose-50,
+.dark-theme .bg-rose-50\/50,
+.dark-theme .bg-rose-100,
+.dark-theme .bg-red-50,
+.dark-theme .bg-red-100 {
+  background-color: rgba(136, 19, 55, 0.4) !important;
+}
+
+.dark-theme .bg-purple-50,
+.dark-theme .bg-purple-100,
+.dark-theme .bg-indigo-50,
+.dark-theme .bg-indigo-100 {
+  background-color: rgba(59, 7, 100, 0.4) !important;
+}
+
+/* Text colors in dark mode */
+.dark-theme .text-slate-900,
+.dark-theme .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+
+.dark-theme .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark-theme .text-slate-600,
+.dark-theme .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark-theme .text-blue-900,
+.dark-theme .text-blue-800,
+.dark-theme .text-blue-700,
+.dark-theme .text-blue-600 {
+  color: #38bdf8 !important;
+}
+
+.dark-theme .text-emerald-900,
+.dark-theme .text-emerald-800,
+.dark-theme .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+.dark-theme .text-amber-900,
+.dark-theme .text-amber-800,
+.dark-theme .text-amber-700 {
+  color: #fbbf24 !important;
+}
+
+.dark-theme .text-rose-900,
+.dark-theme .text-rose-800,
+.dark-theme .text-rose-700,
+.dark-theme .text-red-800,
+.dark-theme .text-red-700 {
+  color: #fb7185 !important;
+}
+
+.dark-theme .text-purple-900,
+.dark-theme .text-purple-800,
+.dark-theme .text-purple-700,
+.dark-theme .text-indigo-800,
+.dark-theme .text-indigo-700 {
+  color: #c084fc !important;
+}
+
+/* Borders & Dividers in dark mode */
+.dark-theme .border-slate-100,
+.dark-theme .border-slate-200,
+.dark-theme .border-slate-200\/80,
+.dark-theme .border-slate-200\/90,
+.dark-theme .border-slate-200\/60,
+.dark-theme .border-slate-300 {
+  border-color: #1e293b !important;
+}
+
+.dark-theme .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark-theme .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b !important;
+}
+
+.dark-theme .border-blue-100,
+.dark-theme .border-blue-200 {
+  border-color: rgba(14, 116, 144, 0.45) !important;
+}
+
+.dark-theme .border-emerald-100,
+.dark-theme .border-emerald-200 {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+.dark-theme .border-amber-100,
+.dark-theme .border-amber-200 {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+.dark-theme .border-rose-100,
+.dark-theme .border-rose-200,
+.dark-theme .border-red-200 {
+  border-color: rgba(244, 63, 94, 0.35) !important;
+}
+
+/* Form controls in dark mode */
+.dark-theme input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark-theme select,
+.dark-theme textarea {
+  color: #f1f5f9;
+}
+
+.dark-theme select option {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Hover states */
+.dark-theme .hover\:bg-slate-50:hover,
+.dark-theme .hover\:bg-slate-50\/90:hover,
+.dark-theme .hover\:bg-slate-50\/80:hover,
+.dark-theme .hover\:bg-slate-50\/70:hover,
+.dark-theme .hover\:bg-slate-50\/60:hover,
+.dark-theme .hover\:bg-slate-50\/50:hover,
+.dark-theme .hover\:bg-slate-100:hover,
+.dark-theme .hover\:bg-slate-200:hover,
+.dark-theme .hover\:bg-slate-200\/80:hover,
+.dark-theme .hover\:bg-blue-50:hover,
+.dark-theme .hover\:bg-blue-50\/70:hover,
+.dark-theme .hover\:bg-blue-50\/50:hover,
+.dark-theme .hover\:bg-blue-100:hover,
+.dark-theme .hover\:bg-blue-100\/50:hover,
+.dark-theme .hover\:bg-blue-100\/60:hover,
+.dark-theme .hover\:bg-emerald-50:hover,
+.dark-theme .hover\:bg-emerald-100:hover,
+.dark-theme .hover\:bg-amber-50:hover,
+.dark-theme .hover\:bg-amber-100:hover,
+.dark-theme .hover\:bg-rose-50:hover,
+.dark-theme .hover\:bg-rose-100:hover,
+.dark-theme .hover\:bg-purple-50:hover,
+.dark-theme .hover\:bg-purple-100:hover,
+.dark-theme .hover\:bg-purple-100\/60:hover {
+  background-color: #1e293b !important;
+}
+
+/* Custom scrollbars for data tables and panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080e1c;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+

@@ -1,0 +1,169 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default Deny Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'thuytrangtonnu@gmail.com' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Health-check / connection validation document
+    match /test/{testId} {
+      allow get: if true;
+      allow list, write: if isAdmin();
+    }
+
+    // Admin collection
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.id is string && data.id.size() <= 128 &&
+               data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+               data.email is string && data.email.size() > 0 && data.email.size() <= 150 &&
+               data.role in ['admin', 'teacher', 'student', 'parent'] &&
+               (!('schoolName' in data) || (data.schoolName is string && data.schoolName.size() <= 200)) &&
+               (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500));
+      }
+
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId &&
+                       isValidUser(incoming()) && incoming().id == userId &&
+                       incoming().role != 'admin';
+
+      allow update: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
+        isAdmin() ||
+        (
+          request.auth.uid == userId &&
+          incoming().id == existing().id &&
+          incoming().email == existing().email &&
+          incoming().role == existing().role &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'schoolName', 'updatedAt'])
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // Questions Collection (Question Bank)
+    match /questions/{questionId} {
+      function isValidQuestion(data) {
+        return data.id is string && data.id.size() <= 128 &&
+               data.code is string && data.code.size() > 0 && data.code.size() <= 64 &&
+               data.subject is string && data.subject.size() > 0 && data.subject.size() <= 100 &&
+               data.gradeLevel is number && data.gradeLevel >= 1 && data.gradeLevel <= 12 &&
+               data.type in ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'essay'] &&
+               data.difficulty in ['Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao'] &&
+               data.status in ['approved', 'pending', 'draft', 'rejected', 'archived'] &&
+               data.content is string && data.content.size() > 0 && data.content.size() <= 10000 &&
+               data.authorId is string && data.authorId.size() <= 128;
+      }
+
+      allow get: if isSignedIn() && isValidId(questionId) && (
+        resource.data.status == 'approved' ||
+        resource.data.authorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.status == 'approved' ||
+        resource.data.authorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow create: if isSignedIn() && isValidId(questionId) &&
+                       isValidQuestion(incoming()) &&
+                       incoming().id == questionId &&
+                       incoming().authorId == request.auth.uid;
+
+      allow update: if isSignedIn() && isValidId(questionId) &&
+                       isValidQuestion(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().authorId == existing().authorId && (
+                         existing().authorId == request.auth.uid ||
+                         isAdmin()
+                       );
+
+      allow delete: if isSignedIn() && isValidId(questionId) && (
+        existing().authorId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // Classes Collection
+    match /classes/{classId} {
+      function isValidClass(data) {
+        return data.id is string && data.id.size() <= 128 &&
+               data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
+               data.grade is number && data.grade >= 1 && data.grade <= 12;
+      }
+
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(classId) && isValidClass(incoming());
+      allow update: if isSignedIn() && isValidId(classId) && isValidClass(incoming()) && incoming().id == existing().id;
+      allow delete: if isAdmin();
+    }
+
+    // Schedules Collection (Timetable)
+    match /schedules/{scheduleId} {
+      function isValidSchedule(data) {
+        return data.id is string && data.id.size() <= 128 &&
+               data.dayOfWeek is number && data.dayOfWeek >= 2 && data.dayOfWeek <= 8 &&
+               data.period is number && data.period >= 1 && data.period <= 10 &&
+               data.subject is string && data.subject.size() > 0 && data.subject.size() <= 100;
+      }
+
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(scheduleId) && isValidSchedule(incoming());
+      allow delete: if isSignedIn() && isValidId(scheduleId);
+    }
+
+    // Announcements Collection
+    match /announcements/{announcementId} {
+      function isValidAnnouncement(data) {
+        return data.id is string && data.id.size() <= 128 &&
+               data.title is string && data.title.size() > 0 && data.title.size() <= 255 &&
+               data.content is string && data.content.size() > 0 && data.content.size() <= 10000 &&
+               data.authorId is string && data.authorId.size() <= 128;
+      }
+
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(announcementId) &&
+                       isValidAnnouncement(incoming()) &&
+                       incoming().authorId == request.auth.uid;
+      allow update, delete: if isSignedIn() && isValidId(announcementId) && (
+        existing().authorId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+  }
+}

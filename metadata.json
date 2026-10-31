@@ -1,0 +1,6 @@
+{
+  "name": "Smart Class - Hệ Thống Quản Lý Lớp Học Thông Minh",
+  "description": "Nền tảng quản lý lớp học EdTech đa phân quyền (Admin, Giáo viên, Học sinh, Phụ huynh) với hồ sơ 360°, điểm danh thông minh, sổ điểm, bài tập, công cụ tương tác lớp và cảnh báo học tập.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
