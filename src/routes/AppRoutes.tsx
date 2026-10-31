@@ -48,7 +48,8 @@ export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<Login defaultTab="login" />} />
+      <Route path="/register" element={<Login defaultTab="register" />} />
       <Route path="/403" element={<Forbidden />} />
 
       {/* Redirect root to teacher dashboard or login */}

@@ -1,5 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -79,6 +87,20 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   return await signInWithPopup(auth, provider);
+}
+
+// Đăng ký tài khoản bằng Email & Mật khẩu với Firebase Auth
+export async function registerWithEmailPassword(email: string, password: string, displayName?: string) {
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  if (displayName && userCredential.user) {
+    await updateProfile(userCredential.user, { displayName });
+  }
+  return userCredential;
+}
+
+// Đăng nhập bằng Email & Mật khẩu với Firebase Auth
+export async function logInWithEmailPassword(email: string, password: string) {
+  return await signInWithEmailAndPassword(auth, email, password);
 }
 
 // Đăng xuất khỏi Firebase
