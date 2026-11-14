@@ -1073,130 +1073,57 @@ export const AssignmentList: React.FC = () => {
         </div>
       </PageHeader>
 
-      {/* Thanh điều hướng 3 Menu con của Module Giao bài tập */}
-      <div className="bg-[#0f172a] p-2 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => switchSubModule('topics')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeSubModule === 'topics'
-                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
-          >
-            <FolderKanban className="w-4 h-4" />
-            <span>1. Quản lý chủ đề</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/20">
-              {allTopics.filter((t) => t.status === 'active').length}
-            </span>
-          </button>
+      {/* Thanh điều hướng 3 Menu con & Bộ lọc tìm kiếm Chủ đề ngay tại vị trí đầu trang */}
+      <div className="bg-[#0f172a] p-3.5 rounded-2xl border border-slate-800 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => switchSubModule('topics')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubModule === 'topics'
+                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <FolderKanban className="w-4 h-4" />
+              <span>1. Quản lý chủ đề</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/20">
+                {allTopics.filter((t) => t.status === 'active').length}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => switchSubModule('create')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeSubModule === 'create'
-                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>2. Tạo bài tập (Quy trình 4 bước)</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => switchSubModule('create')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubModule === 'create'
+                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>2. Tạo bài tập (Quy trình 4 bước)</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => switchSubModule('list')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeSubModule === 'list'
-                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
-          >
-            <ListChecks className="w-4 h-4" />
-            <span>3. Danh sách bài tập đã giao</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/20">
-              {allAssignments.length}
-            </span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => switchSubModule('list')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubModule === 'list'
+                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <ListChecks className="w-4 h-4" />
+              <span>3. Danh sách bài tập đã giao</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/20">
+                {allAssignments.length}
+              </span>
+            </button>
+          </div>
 
-        <div className="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Liên kết trực tiếp Ngân hàng câu hỏi chung ({allBankQuestions.length} câu)</span>
-        </div>
-      </div>
-
-      {/* ===================================================================== */}
-      {/* MÀN HÌNH 1: QUẢN LÝ CHỦ ĐỀ (TOPICS)                                   */}
-      {/* ===================================================================== */}
-      {activeSubModule === 'topics' && (
-        <div className="space-y-5">
-          {/* Thanh công cụ tìm kiếm, lọc và thêm chủ đề */}
-          <div className="bg-[#0f172a] p-4 rounded-2xl border border-slate-800 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2.5 flex-1">
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={topicSearch}
-                  onChange={(e) => {
-                    setTopicSearch(e.target.value);
-                    setTopicPage(1);
-                  }}
-                  placeholder="Tìm tên chủ đề, chương, nội dung..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              <select
-                value={topicSubjectFilter}
-                onChange={(e) => {
-                  setTopicSubjectFilter(e.target.value);
-                  setTopicPage(1);
-                }}
-                className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-200 outline-none focus:border-cyan-500"
-              >
-                <option value="all">Tất cả môn học</option>
-                {assignedSubjects.map((s) => (
-                  <option key={s} value={s}>
-                    Môn: {s}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={topicClassFilter}
-                onChange={(e) => {
-                  setTopicClassFilter(e.target.value);
-                  setTopicPage(1);
-                }}
-                className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-200 outline-none focus:border-cyan-500"
-              >
-                <option value="all">Tất cả lớp phụ trách</option>
-                {assignedClasses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    Lớp {c.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={topicStatusFilter}
-                onChange={(e) => {
-                  setTopicStatusFilter(e.target.value as any);
-                  setTopicPage(1);
-                }}
-                className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-200 outline-none focus:border-cyan-500"
-              >
-                <option value="all">Trạng thái: Đang hoạt động</option>
-                <option value="sufficient">Đủ câu hỏi</option>
-                <option value="insufficient">Thiếu câu hỏi</option>
-                <option value="archived">Đã lưu trữ / Ẩn</option>
-              </select>
-            </div>
-
+          {activeSubModule === 'topics' ? (
             <button
               type="button"
               onClick={handleOpenCreateTopic}
@@ -1204,7 +1131,89 @@ export const AssignmentList: React.FC = () => {
             >
               <Plus className="w-4 h-4" /> Thêm chủ đề mới
             </button>
+          ) : (
+            <div className="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Liên kết trực tiếp Ngân hàng câu hỏi chung ({allBankQuestions.length} câu)</span>
+            </div>
+          )}
+        </div>
+
+        {/* Hàng tìm kiếm & lọc chủ đề: 1. Textbox tìm kiếm chủ đề -> 2. Combobox Tất cả các lớp -> 3. Combobox môn học -> 4. Combobox trạng thái */}
+        {activeSubModule === 'topics' && (
+          <div className="pt-3 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {/* 1. Textbox tìm kiếm chủ đề */}
+            <div className="relative w-full">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={topicSearch}
+                onChange={(e) => {
+                  setTopicSearch(e.target.value);
+                  setTopicPage(1);
+                }}
+                placeholder="Tìm kiếm chủ đề..."
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder-slate-400 outline-none focus:border-cyan-500 transition-colors"
+              />
+            </div>
+
+            {/* 2. Combobox Tất cả các lớp */}
+            <select
+              value={topicClassFilter}
+              onChange={(e) => {
+                setTopicClassFilter(e.target.value);
+                setTopicPage(1);
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-200 outline-none focus:border-cyan-500 cursor-pointer"
+            >
+              <option value="all">Tất cả các lớp</option>
+              {assignedClasses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  Lớp {c.name}
+                </option>
+              ))}
+            </select>
+
+            {/* 3. Combobox Môn học */}
+            <select
+              value={topicSubjectFilter}
+              onChange={(e) => {
+                setTopicSubjectFilter(e.target.value);
+                setTopicPage(1);
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-200 outline-none focus:border-cyan-500 cursor-pointer"
+            >
+              <option value="all">Tất cả môn học</option>
+              {assignedSubjects.map((s) => (
+                <option key={s} value={s}>
+                  Môn: {s}
+                </option>
+              ))}
+            </select>
+
+            {/* 4. Combobox Trạng thái */}
+            <select
+              value={topicStatusFilter}
+              onChange={(e) => {
+                setTopicStatusFilter(e.target.value as any);
+                setTopicPage(1);
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-200 outline-none focus:border-cyan-500 cursor-pointer"
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="sufficient">Đủ câu hỏi</option>
+              <option value="insufficient">Thiếu câu hỏi</option>
+              <option value="archived">Đã lưu trữ / Ẩn</option>
+            </select>
           </div>
+        )}
+      </div>
+
+      {/* ===================================================================== */}
+      {/* MÀN HÌNH 1: QUẢN LÝ CHỦ ĐỀ (TOPICS)                                   */}
+      {/* ===================================================================== */}
+      {activeSubModule === 'topics' && (
+        <div className="space-y-5">
 
           {/* Bảng danh sách chủ đề */}
           {paginatedTopics.length === 0 ? (
