@@ -108,26 +108,108 @@ export interface GradeHistoryEntry {
   timestamp: string;
 }
 
-export type AssignmentStatus = 'draft' | 'published' | 'closed';
+export type AssignmentStatus = 'draft' | 'published' | 'scheduled' | 'closed';
+
+export interface AssignmentTopic {
+  id: string;
+  name: string;
+  content: string; // max 8,000 chars
+  subject: string;
+  classId: string;
+  className: string;
+  gradeLevel: number;
+  chapter?: string;
+  sessionLabel?: string; // e.g. "Tiết 1-2 - Thứ 2 (Buổi học hiện tại)"
+  isCurrentLesson?: boolean;
+  targetObjectiveCount: number; // Số câu trắc nghiệm tối thiểu cần đủ
+  targetEssayCount: number; // Số câu tự luận tối thiểu cần đủ
+  status: 'active' | 'archived';
+  teacherId: string;
+  teacherName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssignmentQuestionSnapshot {
+  questionId: string;
+  code: string;
+  topic: string;
+  chapter?: string;
+  type: 'single_choice' | 'multiple_choice' | 'true_false' | 'fill_blank' | 'essay';
+  difficulty: 'Nhận biết' | 'Thông hiểu' | 'Vận dụng' | 'Vận dụng cao';
+  content: string;
+  options?: { id: string; label: string; text: string; isCorrect: boolean }[];
+  statements?: { id: string; label: string; content: string; isTrue: boolean }[];
+  acceptedAnswers?: string[];
+  rubric?: string;
+  points: number;
+  explanation?: string;
+}
 
 export interface Assignment {
   id: string;
   title: string;
   description: string;
+  instructions?: string;
   subject: string;
   classId: string;
   className: string;
+  targetClassIds?: string[];
+  targetClassNames?: string[];
   teacherId: string;
   teacherName: string;
-  dueDate: string; // ISO string
+  openAt?: string; // ISO string: Thời điểm mở bài
+  dueDate: string; // ISO string (gồm cả ngày và giờ): Hạn nộp
+  durationMinutes?: number; // Thời lượng làm bài (phút, nếu có)
+  maxAttempts?: number; // Số lần làm tối đa
+  latePolicy?: 'allow_marked_late' | 'disallow_after_due' | 'deduct_points';
+  latePenaltyPercent?: number; // % trừ điểm khi nộp muộn
+  showResultPolicy?: 'immediately' | 'after_due' | 'after_grading';
+  assignmentType?: 'homework' | 'test'; // Bài tập về nhà | Bài kiểm tra
+  topicIds?: string[];
+  topicNames?: string[];
+  questionFormat?: 'combined' | 'objective' | 'essay'; // Trắc nghiệm và tự luận | Trắc nghiệm | Tự luận
+  objectiveCount?: number;
+  essayCount?: number;
+  difficultyFilter?: string;
+  selectionMode?: 'random' | 'manual';
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
+  extraRequirementNote?: string;
+  extraRequirementTarget?: 'student_instruction' | 'question_filter';
+  questionSnapshots?: AssignmentQuestionSnapshot[];
   createdAt: string;
+  assignedAt?: string;
+  updatedAt?: string;
   totalPoints: number;
   status: AssignmentStatus;
   submissionCount: number;
   gradedCount: number;
   totalStudents: number;
+  assignedStudentIds?: string[];
   attachmentName?: string;
   attachmentSize?: string;
+}
+
+export type SubmissionStatus =
+  | 'not_started'
+  | 'in_progress'
+  | 'pending'
+  | 'submitted'
+  | 'late'
+  | 'graded'
+  | 'redo_requested'
+  | 'missing';
+
+export interface SubmissionQuestionAnswer {
+  questionId: string;
+  selectedOptionLabels?: string[]; // Cho single_choice / multiple_choice
+  statementAnswers?: Record<string, boolean>; // Cho true_false
+  textAnswer?: string; // Cho fill_blank / essay
+  isCorrect?: boolean;
+  autoScore?: number;
+  manualScore?: number;
+  feedback?: string;
 }
 
 export interface Submission {
@@ -136,14 +218,20 @@ export interface Submission {
   studentId: string;
   studentName: string;
   submittedAt: string;
-  status: 'submitted' | 'graded' | 'late' | 'missing';
+  status: SubmissionStatus;
+  isLate?: boolean;
   content?: string;
   fileName?: string;
   fileSize?: string;
+  answers?: SubmissionQuestionAnswer[];
+  objectiveScore?: number;
+  essayScore?: number;
+  attemptCount?: number;
   score?: number;
   feedback?: string;
   gradedAt?: string;
   gradedBy?: string;
+  updatedAt?: string;
 }
 
 export interface QuizQuestion {

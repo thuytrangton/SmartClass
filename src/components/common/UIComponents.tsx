@@ -240,25 +240,27 @@ export const StatusChip: React.FC<StatusChipProps> = ({ status, label }) => {
   const getStyle = () => {
     switch (status) {
       case 'present':
-        return 'bg-emerald-950/70 text-emerald-300 border-emerald-800/60';
-      case 'late':
-        return 'bg-amber-950/70 text-amber-300 border-amber-800/60';
-      case 'excused':
-        return 'bg-cyan-950/70 text-cyan-300 border-cyan-800/60';
-      case 'unexcused':
-        return 'bg-rose-950/70 text-rose-300 border-rose-800/60';
-      case 'early_leave':
-        return 'bg-purple-950/70 text-purple-300 border-purple-800/60';
       case 'active':
       case 'published':
       case 'graded':
         return 'bg-emerald-950/70 text-emerald-300 border-emerald-800/60';
-      case 'critical':
-        return 'bg-rose-950/70 text-rose-300 border-rose-800/60';
-      case 'warning':
-        return 'bg-amber-950/70 text-amber-300 border-amber-800/60';
+      case 'submitted':
+      case 'excused':
       case 'info':
         return 'bg-cyan-950/70 text-cyan-300 border-cyan-800/60';
+      case 'late':
+      case 'warning':
+      case 'redo_requested':
+        return 'bg-amber-950/70 text-amber-300 border-amber-800/60';
+      case 'unexcused':
+      case 'critical':
+      case 'closed':
+        return 'bg-rose-950/70 text-rose-300 border-rose-800/60';
+      case 'early_leave':
+        return 'bg-purple-950/70 text-purple-300 border-purple-800/60';
+      case 'draft':
+      case 'pending':
+      case 'missing':
       default:
         return 'bg-slate-800 text-slate-300 border-slate-700';
     }
@@ -270,7 +272,7 @@ export const StatusChip: React.FC<StatusChipProps> = ({ status, label }) => {
       case 'present':
         return 'Có mặt';
       case 'late':
-        return 'Đi muộn';
+        return 'Nộp muộn';
       case 'excused':
         return 'Có phép';
       case 'unexcused':
@@ -280,11 +282,20 @@ export const StatusChip: React.FC<StatusChipProps> = ({ status, label }) => {
       case 'active':
         return 'Đang hoạt động';
       case 'published':
-        return 'Đã xuất bản';
+        return 'Đang giao';
+      case 'draft':
+        return 'Bản nháp';
+      case 'closed':
+        return 'Hết hạn';
       case 'graded':
-        return 'Đã chấm điểm';
+        return 'Đã chấm';
       case 'submitted':
-        return 'Đã nộp bài';
+        return 'Đã nộp';
+      case 'redo_requested':
+        return 'Yêu cầu làm lại';
+      case 'pending':
+      case 'missing':
+        return 'Chưa làm';
       case 'critical':
         return 'Khẩn cấp';
       case 'warning':

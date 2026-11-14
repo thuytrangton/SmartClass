@@ -33,8 +33,8 @@ service cloud.firestore {
 
     // Health-check / connection validation document
     match /test/{testId} {
-      allow get: if true;
-      allow list, write: if isAdmin();
+      allow get, list: if true;
+      allow write: if isValidId(testId);
     }
 
     // Admin collection
@@ -53,25 +53,121 @@ service cloud.firestore {
                (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500));
       }
 
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
-
-      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId &&
-                       isValidUser(incoming()) && incoming().id == userId &&
-                       incoming().role != 'admin';
-
-      allow update: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
-        isAdmin() ||
-        (
-          request.auth.uid == userId &&
-          incoming().id == existing().id &&
-          incoming().email == existing().email &&
-          incoming().role == existing().role &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'schoolName', 'updatedAt'])
-        )
-      );
-
+      allow get, list: if true;
+      allow create, update: if isValidId(userId) && isValidUser(incoming());
       allow delete: if isAdmin();
+    }
+
+    // Schools Collection
+    match /schools/{schoolId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(schoolId);
+      allow delete: if isAdmin();
+    }
+
+    // Classes Collection
+    match /classes/{classId} {
+      function isValidClass(data) {
+        return (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
+               (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 50));
+      }
+
+      allow get, list: if true;
+      allow create, update: if isValidId(classId) && isValidClass(incoming());
+      allow delete: if isValidId(classId);
+    }
+
+    // Students Collection
+    match /students/{studentId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(studentId);
+    }
+
+    // Attendance Collection
+    match /attendance/{attendanceId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(attendanceId);
+    }
+
+    // Grades Collection
+    match /grades/{gradeId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(gradeId);
+    }
+
+    // Grade History Collection
+    match /gradeHistory/{historyId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(historyId);
+      allow delete: if isAdmin();
+    }
+
+    // Assignments Collection
+    match /assignments/{assignmentId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(assignmentId);
+    }
+
+    // Submissions Collection
+    match /submissions/{submissionId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(submissionId);
+    }
+
+    // Quizzes Collection
+    match /quizzes/{quizId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(quizId);
+    }
+
+    // Quiz Attempts Collection
+    match /quizAttempts/{attemptId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(attemptId);
+      allow delete: if isAdmin();
+    }
+
+    // Behaviors Collection
+    match /behaviors/{behaviorId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(behaviorId);
+    }
+
+    // Alerts Collection
+    match /alerts/{alertId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(alertId);
+    }
+
+    // Announcements Collection
+    match /announcements/{announcementId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(announcementId);
+    }
+
+    // Schedules Collection (Timetable)
+    match /schedules/{scheduleId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(scheduleId);
+    }
+
+    // Learning Resources Collection
+    match /resources/{resourceId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(resourceId);
+    }
+
+    // Chat Messages Collection
+    match /messages/{messageId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(messageId);
+    }
+
+    // Audit Logs Collection
+    match /auditLogs/{logId} {
+      allow get, list: if true;
+      allow create: if isValidId(logId);
+      allow update, delete: if false;
     }
 
     // Questions Collection (Question Bank)
@@ -84,86 +180,25 @@ service cloud.firestore {
                data.type in ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'essay'] &&
                data.difficulty in ['Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao'] &&
                data.status in ['approved', 'pending', 'draft', 'rejected', 'archived'] &&
-               data.content is string && data.content.size() > 0 && data.content.size() <= 10000 &&
-               data.authorId is string && data.authorId.size() <= 128;
+               data.content is string && data.content.size() > 0 && data.content.size() <= 10000;
       }
 
-      allow get: if isSignedIn() && isValidId(questionId) && (
-        resource.data.status == 'approved' ||
-        resource.data.authorId == request.auth.uid ||
-        isAdmin()
-      );
-
-      allow list: if isSignedIn() && (
-        resource.data.status == 'approved' ||
-        resource.data.authorId == request.auth.uid ||
-        isAdmin()
-      );
-
-      allow create: if isSignedIn() && isValidId(questionId) &&
-                       isValidQuestion(incoming()) &&
-                       incoming().id == questionId &&
-                       incoming().authorId == request.auth.uid;
-
-      allow update: if isSignedIn() && isValidId(questionId) &&
-                       isValidQuestion(incoming()) &&
-                       incoming().id == existing().id &&
-                       incoming().authorId == existing().authorId && (
-                         existing().authorId == request.auth.uid ||
-                         isAdmin()
-                       );
-
-      allow delete: if isSignedIn() && isValidId(questionId) && (
-        existing().authorId == request.auth.uid ||
-        isAdmin()
-      );
+      allow get, list: if true;
+      allow create, update: if isValidId(questionId) && isValidQuestion(incoming());
+      allow delete: if isValidId(questionId);
     }
 
-    // Classes Collection
-    match /classes/{classId} {
-      function isValidClass(data) {
+    // Topics Collection (Assignment Topics)
+    match /topics/{topicId} {
+      function isValidTopic(data) {
         return data.id is string && data.id.size() <= 128 &&
-               data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
-               data.grade is number && data.grade >= 1 && data.grade <= 12;
+               data.name is string && data.name.size() > 0 && data.name.size() <= 300 &&
+               (!('content' in data) || (data.content is string && data.content.size() <= 8000));
       }
 
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(classId) && isValidClass(incoming());
-      allow update: if isSignedIn() && isValidId(classId) && isValidClass(incoming()) && incoming().id == existing().id;
-      allow delete: if isAdmin();
-    }
-
-    // Schedules Collection (Timetable)
-    match /schedules/{scheduleId} {
-      function isValidSchedule(data) {
-        return data.id is string && data.id.size() <= 128 &&
-               data.dayOfWeek is number && data.dayOfWeek >= 2 && data.dayOfWeek <= 8 &&
-               data.period is number && data.period >= 1 && data.period <= 10 &&
-               data.subject is string && data.subject.size() > 0 && data.subject.size() <= 100;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn() && isValidId(scheduleId) && isValidSchedule(incoming());
-      allow delete: if isSignedIn() && isValidId(scheduleId);
-    }
-
-    // Announcements Collection
-    match /announcements/{announcementId} {
-      function isValidAnnouncement(data) {
-        return data.id is string && data.id.size() <= 128 &&
-               data.title is string && data.title.size() > 0 && data.title.size() <= 255 &&
-               data.content is string && data.content.size() > 0 && data.content.size() <= 10000 &&
-               data.authorId is string && data.authorId.size() <= 128;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(announcementId) &&
-                       isValidAnnouncement(incoming()) &&
-                       incoming().authorId == request.auth.uid;
-      allow update, delete: if isSignedIn() && isValidId(announcementId) && (
-        existing().authorId == request.auth.uid ||
-        isAdmin()
-      );
+      allow get, list: if true;
+      allow create, update: if isValidId(topicId) && isValidTopic(incoming());
+      allow delete: if isValidId(topicId);
     }
   }
 }

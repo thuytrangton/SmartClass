@@ -35,12 +35,19 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+interface NavSubItem {
+  to: string;
+  label: string;
+  tab: 'topics' | 'create' | 'list';
+}
+
 interface NavItem {
   to: string;
   label: string;
   icon: any;
   badge?: string;
   highlight?: boolean;
+  subItems?: NavSubItem[];
 }
 
 interface NavModuleGroup {
@@ -77,7 +84,16 @@ const TEACHER_GROUPS: NavModuleGroup[] = [
     icon: BookOpen,
     items: [
       { to: '/teacher/quizzes', label: 'Ngân hàng câu hỏi', icon: FileText },
-      { to: '/teacher/assignments', label: 'Giao bài tập', icon: BookOpen },
+      {
+        to: '/teacher/assignments',
+        label: 'Giao bài tập',
+        icon: BookOpen,
+        subItems: [
+          { to: '/teacher/assignments?tab=topics', label: 'Quản lý chủ đề', tab: 'topics' },
+          { to: '/teacher/assignments?tab=create', label: 'Tạo bài tập', tab: 'create' },
+          { to: '/teacher/assignments?tab=list', label: 'Danh sách bài tập đã giao', tab: 'list' }
+        ]
+      },
       { to: '/teacher/auto-grading', label: 'Chấm bài tự động', icon: CheckCircle2 },
       { to: '/teacher/resources', label: 'Tài liệu số', icon: FolderOpen },
       { to: '/teacher/ai', label: 'AI Hỗ trợ', icon: Sparkles, badge: 'AI' }
@@ -320,32 +336,77 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {/* Sub-items (nested screens): Open/Close container */}
                 {isGroupOpen && (
                   <div className="mt-1 pl-2 pr-1 pb-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150 border-l-2 border-slate-800 ml-3">
-                    {group.items.map((item) => (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        onClick={() => {
-                          if (window.innerWidth < 1024) handleCloseMenu();
-                        }}
-                        className={({ isActive }) =>
-                          `flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                            isActive
-                              ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold shadow-md shadow-cyan-950/50'
-                              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
-                          }`
-                        }
-                      >
-                        <div className="flex items-center gap-2.5 truncate">
-                          <item.icon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{item.label}</span>
+                    {group.items.map((item) => {
+                      const currentTab = new URLSearchParams(location.search).get('tab');
+                      const isParentActive = location.pathname === item.to;
+
+                      return (
+                        <div key={item.to} className="space-y-1">
+                          <NavLink
+                            to={item.to}
+                            onClick={() => {
+                              if (window.innerWidth < 1024 && !item.subItems) handleCloseMenu();
+                            }}
+                            className={({ isActive }) =>
+                              `flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
+                                isActive
+                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold shadow-md shadow-cyan-950/50'
+                                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                              }`
+                            }
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <item.icon className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {item.badge && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-amber-500 text-slate-950">
+                                  {item.badge}
+                                </span>
+                              )}
+                              {item.subItems && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
+                                  3 mục
+                                </span>
+                              )}
+                            </div>
+                          </NavLink>
+
+                          {/* 3 Menu con của Giao bài tập: Quản lý chủ đề; Tạo bài tập; Danh sách bài tập đã giao */}
+                          {item.subItems && (
+                            <div className="ml-4 pl-2.5 border-l border-slate-800/90 space-y-0.5 py-0.5">
+                              {item.subItems.map((sub) => {
+                                const isSubActive =
+                                  isParentActive &&
+                                  (currentTab === sub.tab || (!currentTab && sub.tab === 'list'));
+                                return (
+                                  <NavLink
+                                    key={sub.to}
+                                    to={sub.to}
+                                    onClick={() => {
+                                      if (window.innerWidth < 1024) handleCloseMenu();
+                                    }}
+                                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-all ${
+                                      isSubActive
+                                        ? 'bg-cyan-950/80 text-cyan-300 font-bold border border-cyan-500/30'
+                                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                        isSubActive ? 'bg-cyan-400' : 'bg-slate-600'
+                                      }`}
+                                    />
+                                    <span className="truncate">{sub.label}</span>
+                                  </NavLink>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                        {item.badge && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-amber-500 text-slate-950">
-                            {item.badge}
-                          </span>
-                        )}
-                      </NavLink>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

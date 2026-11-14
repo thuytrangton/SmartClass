@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { GoogleGenAI, Type } from '@google/genai';
 import { db as firestoreDb, auth } from './firebase';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 
 export type QuestionType =
   | 'single_choice'
@@ -73,6 +73,8 @@ export interface QuestionItem {
   tags: string[];
   source: QuestionSource;
   sourceNote?: string;
+  authorId?: string;
+  authorName?: string;
   createdAt: string;
   updatedAt: string;
   // Duplicate & quality tracking
@@ -762,6 +764,17 @@ export function recomputeBankDiagnostics(questions: QuestionItem[]): QuestionIte
 }
 
 class QuestionBankService {
+  private listeners: Set<() => void> = new Set();
+
+  public subscribe(cb: () => void): () => void {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
+  }
+
+  private notify() {
+    this.listeners.forEach((cb) => cb());
+  }
+
   private load(): QuestionItem[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -784,6 +797,35 @@ class QuestionBankService {
     } catch (e) {
       console.error('Failed to save question bank to localStorage:', e);
     }
+
+    // Tự động đồng bộ lên Cloud Firestore
+    const uid = auth.currentUser?.uid || 'teacher-default';
+    const uName = auth.currentUser?.displayName || 'Giáo viên';
+    updated.forEach((q) => {
+      const qDocRef = doc(firestoreDb, 'questions', q.id);
+      const payload = {
+        id: q.id,
+        code: q.code,
+        subject: q.subject,
+        gradeLevel: q.gradeLevel,
+        className: q.className || '',
+        chapter: q.chapter || '',
+        topic: q.topic || '',
+        type: q.type,
+        difficulty: q.difficulty,
+        status: q.status,
+        content: q.content,
+        authorId: q.authorId || uid,
+        authorName: q.authorName || uName,
+        createdAt: q.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setDoc(qDocRef, payload, { merge: true }).catch((err) => {
+        console.warn('Auto sync question to Firestore notice:', err);
+      });
+    });
+
+    this.notify();
     return updated;
   }
 
@@ -917,10 +959,32 @@ class QuestionBankService {
     return saved.find((q) => q.id === copy.id);
   }
 
+  delete(id: string): QuestionItem[] {
+    return this.deleteMany([id]);
+  }
+
   deleteMany(ids: string[]): QuestionItem[] {
     const idSet = new Set(ids);
+    ids.forEach((id) => {
+      deleteDoc(doc(firestoreDb, 'questions', id)).catch((err) => {
+        console.warn('Delete question from Firestore notice:', err);
+      });
+    });
     const filtered = this.load().filter((q) => !idSet.has(q.id));
     return this.save(filtered);
+  }
+
+  bulkUpdateMetadata(
+    ids: string[],
+    patch: {
+      difficulty?: QuestionDifficulty;
+      status?: QuestionStatus;
+      chapter?: string;
+      topic?: string;
+      addTag?: string;
+    }
+  ): QuestionItem[] {
+    return this.bulkUpdate(ids, patch);
   }
 
   bulkUpdate(

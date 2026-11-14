@@ -66,12 +66,20 @@ export const TeacherDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header (Đã bỏ nút Điểm danh hôm nay lặp lại với thẻ bên dưới) */}
+      {/* Page Header với nút hành động nhanh Giao bài tập */}
       <PageHeader
         title={`Bàn làm việc Giáo viên - Lớp ${selectedClass?.name || '10A1'}`}
         subtitle={`Chào mừng ${currentUser?.name || 'Cô Trần Thị Mai'}, chúc cô một ngày dạy học tràn đầy năng lượng!`}
         badge={`Học kỳ 1 • 2025-2026`}
-      />
+      >
+        <button
+          onClick={() => navigate(`/teacher/assignments?action=create&classId=${selectedClassId}`)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-sm font-bold rounded-xl shadow-md shadow-cyan-950/50 transition-all cursor-pointer"
+        >
+          <BookOpen className="w-4 h-4" />
+          Giao bài tập
+        </button>
+      </PageHeader>
 
       {/* 4 Stat Cards (Mỗi tính năng chỉ giữ 1 thẻ duy nhất) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

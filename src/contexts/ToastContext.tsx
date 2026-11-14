@@ -14,6 +14,7 @@ export interface ToastItem {
 interface ToastContextType {
   toasts: ToastItem[];
   addToast: (type: ToastType, title: string, message?: string, duration?: number) => void;
+  showToast: (title: string, type?: ToastType, message?: string) => void;
   removeToast: (id: string) => void;
   success: (title: string, message?: string) => void;
   error: (title: string, message?: string) => void;
@@ -45,13 +46,20 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     [removeToast]
   );
 
+  const showToast = useCallback(
+    (title: string, type: ToastType = 'info', message?: string) => {
+      addToast(type, title, message);
+    },
+    [addToast]
+  );
+
   const success = useCallback((title: string, message?: string) => addToast('success', title, message), [addToast]);
   const error = useCallback((title: string, message?: string) => addToast('error', title, message, 6000), [addToast]);
   const warning = useCallback((title: string, message?: string) => addToast('warning', title, message), [addToast]);
   const info = useCallback((title: string, message?: string) => addToast('info', title, message), [addToast]);
 
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast, success, error, warning, info }}>
+    <ToastContext.Provider value={{ toasts, addToast, showToast, removeToast, success, error, warning, info }}>
       {children}
       {/* Toast Render View */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">

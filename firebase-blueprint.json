@@ -5,309 +5,374 @@
       "description": "Hồ sơ người dùng trong hệ thống trường học thông minh",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Mã định danh người dùng (khớp với Firebase Auth UID)",
-          "maxLength": 128
-        },
-        "name": {
-          "type": "string",
-          "description": "Họ và tên",
-          "maxLength": 100
-        },
-        "email": {
-          "type": "string",
-          "description": "Địa chỉ email",
-          "maxLength": 150
-        },
-        "role": {
-          "type": "string",
-          "description": "Vai trò trong hệ thống",
-          "enum": ["admin", "teacher", "student", "parent"]
-        },
-        "avatar": {
-          "type": "string",
-          "description": "Đường dẫn ảnh đại diện",
-          "maxLength": 500
-        },
-        "schoolName": {
-          "type": "string",
-          "description": "Tên trường",
-          "maxLength": 200
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Thời gian tạo hồ sơ",
-          "maxLength": 50
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Thời gian cập nhật",
-          "maxLength": 50
-        }
+        "id": { "type": "string", "description": "UID người dùng", "maxLength": 128 },
+        "name": { "type": "string", "description": "Họ và tên", "maxLength": 100 },
+        "email": { "type": "string", "description": "Địa chỉ email", "maxLength": 150 },
+        "role": { "type": "string", "description": "Vai trò trong hệ thống", "enum": ["admin", "teacher", "student", "parent"] },
+        "avatar": { "type": "string", "description": "Ảnh đại diện", "maxLength": 500 },
+        "schoolName": { "type": "string", "description": "Tên trường", "maxLength": 200 },
+        "phone": { "type": "string", "description": "Số điện thoại", "maxLength": 30 },
+        "createdAt": { "type": "string", "description": "Thời gian tạo", "maxLength": 50 },
+        "updatedAt": { "type": "string", "description": "Thời gian cập nhật", "maxLength": 50 }
       },
       "required": ["id", "name", "email", "role"]
     },
-    "Question": {
-      "title": "Question",
-      "description": "Câu hỏi trong ngân hàng câu hỏi thông minh",
+    "School": {
+      "title": "School",
+      "description": "Thông tin trường học",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Mã câu hỏi định danh duy nhất",
-          "maxLength": 128
-        },
-        "code": {
-          "type": "string",
-          "description": "Mã hiển thị (VD: Q-10-TOAN-001)",
-          "maxLength": 64
-        },
-        "subject": {
-          "type": "string",
-          "description": "Môn học",
-          "maxLength": 100
-        },
-        "gradeLevel": {
-          "type": "number",
-          "description": "Khối lớp (1 - 12)"
-        },
-        "className": {
-          "type": "string",
-          "description": "Lớp học cụ thể nếu có",
-          "maxLength": 50
-        },
-        "chapter": {
-          "type": "string",
-          "description": "Chương hoặc chuyên đề",
-          "maxLength": 200
-        },
-        "topic": {
-          "type": "string",
-          "description": "Chủ đề / Bài học",
-          "maxLength": 200
-        },
-        "type": {
-          "type": "string",
-          "description": "Dạng câu hỏi",
-          "enum": ["single_choice", "multiple_choice", "true_false", "fill_blank", "essay"]
-        },
-        "difficulty": {
-          "type": "string",
-          "description": "Mức độ nhận thức",
-          "enum": ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
-        },
-        "status": {
-          "type": "string",
-          "description": "Trạng thái kiểm duyệt",
-          "enum": ["approved", "pending", "draft", "rejected", "archived"]
-        },
-        "content": {
-          "type": "string",
-          "description": "Nội dung câu hỏi",
-          "maxLength": 10000
-        },
-        "authorId": {
-          "type": "string",
-          "description": "UID người tạo câu hỏi",
-          "maxLength": 128
-        },
-        "authorName": {
-          "type": "string",
-          "description": "Tên người tạo câu hỏi",
-          "maxLength": 100
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Thời gian tạo",
-          "maxLength": 50
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Thời gian cập nhật",
-          "maxLength": 50
-        }
+        "id": { "type": "string", "description": "Mã trường", "maxLength": 128 },
+        "name": { "type": "string", "description": "Tên trường", "maxLength": 200 },
+        "code": { "type": "string", "description": "Mã trường học", "maxLength": 50 },
+        "address": { "type": "string", "description": "Địa chỉ", "maxLength": 300 },
+        "phone": { "type": "string", "description": "Số điện thoại", "maxLength": 30 },
+        "principal": { "type": "string", "description": "Hiệu trưởng", "maxLength": 100 },
+        "academicYear": { "type": "string", "description": "Năm học", "maxLength": 50 }
       },
-      "required": ["id", "code", "subject", "gradeLevel", "type", "difficulty", "status", "content", "authorId"]
+      "required": ["id", "name"]
     },
     "Class": {
       "title": "Class",
       "description": "Lớp học",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Mã lớp",
-          "maxLength": 128
-        },
-        "name": {
-          "type": "string",
-          "description": "Tên lớp",
-          "maxLength": 50
-        },
-        "grade": {
-          "type": "number",
-          "description": "Khối lớp"
-        },
-        "homeroomTeacherId": {
-          "type": "string",
-          "description": "Mã GVCN",
-          "maxLength": 128
-        },
-        "homeroomTeacherName": {
-          "type": "string",
-          "description": "Tên GVCN",
-          "maxLength": 100
-        },
-        "room": {
-          "type": "string",
-          "description": "Phòng học",
-          "maxLength": 50
-        },
-        "academicYear": {
-          "type": "string",
-          "description": "Năm học",
-          "maxLength": 50
-        }
+        "id": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "name": { "type": "string", "description": "Tên lớp", "maxLength": 50 },
+        "gradeLevel": { "type": "number", "description": "Khối lớp" },
+        "homeroomTeacherId": { "type": "string", "description": "Mã GVCN", "maxLength": 128 },
+        "homeroomTeacherName": { "type": "string", "description": "Tên GVCN", "maxLength": 100 },
+        "roomNumber": { "type": "string", "description": "Phòng học", "maxLength": 50 },
+        "academicYear": { "type": "string", "description": "Năm học", "maxLength": 50 },
+        "studentCount": { "type": "number", "description": "Số lượng học sinh" },
+        "maxCapacity": { "type": "number", "description": "Sĩ số tối đa" }
       },
-      "required": ["id", "name", "grade"]
+      "required": ["id", "name"]
     },
-    "Schedule": {
-      "title": "Schedule",
-      "description": "Tiết học trong thời khóa biểu",
+    "Student": {
+      "title": "Student",
+      "description": "Học sinh trong lớp",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Mã tiết",
-          "maxLength": 128
-        },
-        "classId": {
-          "type": "string",
-          "description": "Mã lớp",
-          "maxLength": 128
-        },
-        "className": {
-          "type": "string",
-          "description": "Tên lớp",
-          "maxLength": 50
-        },
-        "dayOfWeek": {
-          "type": "number",
-          "description": "Thứ trong tuần (2 - 8)"
-        },
-        "period": {
-          "type": "number",
-          "description": "Tiết học (1 - 10)"
-        },
-        "timeRange": {
-          "type": "string",
-          "description": "Khung giờ học",
-          "maxLength": 50
-        },
-        "subject": {
-          "type": "string",
-          "description": "Môn học",
-          "maxLength": 100
-        },
-        "teacherName": {
-          "type": "string",
-          "description": "Tên giáo viên",
-          "maxLength": 100
-        },
-        "room": {
-          "type": "string",
-          "description": "Phòng học",
-          "maxLength": 50
-        }
+        "id": { "type": "string", "description": "Mã học sinh", "maxLength": 128 },
+        "code": { "type": "string", "description": "Số hiệu học sinh", "maxLength": 50 },
+        "fullName": { "type": "string", "description": "Họ và tên", "maxLength": 100 },
+        "dateOfBirth": { "type": "string", "description": "Ngày sinh", "maxLength": 50 },
+        "gender": { "type": "string", "description": "Giới tính", "enum": ["Nam", "Nữ"] },
+        "avatar": { "type": "string", "description": "Ảnh", "maxLength": 500 },
+        "classId": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "className": { "type": "string", "description": "Tên lớp", "maxLength": 50 },
+        "phone": { "type": "string", "description": "SĐT", "maxLength": 30 },
+        "email": { "type": "string", "description": "Email", "maxLength": 150 },
+        "address": { "type": "string", "description": "Địa chỉ", "maxLength": 300 },
+        "status": { "type": "string", "description": "Trạng thái", "enum": ["active", "transferred", "suspended"] },
+        "gpa": { "type": "number", "description": "Điểm TB" },
+        "conduct": { "type": "string", "description": "Hạnh kiểm", "maxLength": 50 },
+        "attendanceRate": { "type": "number", "description": "Tỷ lệ chuyên cần" },
+        "stars": { "type": "number", "description": "Điểm sao thi đua" },
+        "parentId": { "type": "string", "description": "Mã phụ huynh", "maxLength": 128 },
+        "parentName": { "type": "string", "description": "Tên phụ huynh", "maxLength": 100 }
       },
-      "required": ["id", "dayOfWeek", "period", "subject"]
+      "required": ["id", "fullName", "classId"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Bản ghi điểm danh",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã điểm danh", "maxLength": 128 },
+        "classId": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "date": { "type": "string", "description": "Ngày điểm danh", "maxLength": 50 },
+        "studentId": { "type": "string", "description": "Mã học sinh", "maxLength": 128 },
+        "studentName": { "type": "string", "description": "Tên học sinh", "maxLength": 100 },
+        "studentCode": { "type": "string", "description": "Mã số HS", "maxLength": 50 },
+        "status": { "type": "string", "description": "Trạng thái", "enum": ["present", "absent_excused", "absent_unexcused", "late"] },
+        "note": { "type": "string", "description": "Ghi chú", "maxLength": 500 },
+        "recordedByTeacherId": { "type": "string", "description": "Mã GV điểm danh", "maxLength": 128 },
+        "updatedAt": { "type": "string", "description": "Thời gian cập nhật", "maxLength": 50 }
+      },
+      "required": ["id", "classId", "studentId", "date", "status"]
+    },
+    "Grade": {
+      "title": "Grade",
+      "description": "Bảng điểm học sinh",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã dòng điểm", "maxLength": 128 },
+        "classId": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "studentId": { "type": "string", "description": "Mã học sinh", "maxLength": 128 },
+        "studentName": { "type": "string", "description": "Tên học sinh", "maxLength": 100 },
+        "studentCode": { "type": "string", "description": "Mã số HS", "maxLength": 50 },
+        "subject": { "type": "string", "description": "Môn học", "maxLength": 100 },
+        "semester": { "type": "string", "description": "Học kỳ", "enum": ["HK1", "HK2"] },
+        "academicYear": { "type": "string", "description": "Năm học", "maxLength": 50 },
+        "tx1": { "type": "number", "description": "Điểm thường xuyên 1" },
+        "tx2": { "type": "number", "description": "Điểm thường xuyên 2" },
+        "tx3": { "type": "number", "description": "Điểm thường xuyên 3" },
+        "gk": { "type": "number", "description": "Điểm giữa kỳ" },
+        "ck": { "type": "number", "description": "Điểm cuối kỳ" },
+        "average": { "type": "number", "description": "Điểm trung bình" }
+      },
+      "required": ["id", "classId", "studentId", "subject"]
+    },
+    "GradeHistory": {
+      "title": "GradeHistory",
+      "description": "Lịch sử chỉnh sửa điểm",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã lịch sử", "maxLength": 128 },
+        "gradeItemId": { "type": "string", "description": "Mã dòng điểm", "maxLength": 128 },
+        "studentName": { "type": "string", "description": "Tên học sinh", "maxLength": 100 },
+        "subject": { "type": "string", "description": "Môn học", "maxLength": 100 },
+        "columnChanged": { "type": "string", "description": "Cột điểm thay đổi", "maxLength": 50 },
+        "oldValue": { "type": "number", "description": "Điểm cũ" },
+        "newValue": { "type": "number", "description": "Điểm mới" },
+        "reason": { "type": "string", "description": "Lý do", "maxLength": 500 },
+        "changedBy": { "type": "string", "description": "Người sửa", "maxLength": 100 },
+        "timestamp": { "type": "string", "description": "Thời gian", "maxLength": 50 }
+      },
+      "required": ["id", "gradeItemId"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Bài tập giao cho lớp",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã bài tập", "maxLength": 128 },
+        "classId": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "className": { "type": "string", "description": "Tên lớp", "maxLength": 50 },
+        "subject": { "type": "string", "description": "Môn học", "maxLength": 100 },
+        "title": { "type": "string", "description": "Tiêu đề bài tập", "maxLength": 255 },
+        "description": { "type": "string", "description": "Mô tả", "maxLength": 5000 },
+        "dueDate": { "type": "string", "description": "Hạn nộp", "maxLength": 50 },
+        "type": { "type": "string", "description": "Loại bài tập", "enum": ["essay", "quiz", "project"] },
+        "maxScore": { "type": "number", "description": "Thang điểm" },
+        "submissionCount": { "type": "number", "description": "Số lượng bài đã nộp" },
+        "gradedCount": { "type": "number", "description": "Số bài đã chấm" },
+        "createdAt": { "type": "string", "description": "Thời gian tạo", "maxLength": 50 }
+      },
+      "required": ["id", "title", "classId", "subject"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Bài nộp của học sinh",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã bài nộp", "maxLength": 128 },
+        "assignmentId": { "type": "string", "description": "Mã bài tập", "maxLength": 128 },
+        "studentId": { "type": "string", "description": "Mã học sinh", "maxLength": 128 },
+        "studentName": { "type": "string", "description": "Tên học sinh", "maxLength": 100 },
+        "submittedAt": { "type": "string", "description": "Thời gian nộp", "maxLength": 50 },
+        "status": { "type": "string", "description": "Trạng thái", "enum": ["submitted", "graded", "late"] },
+        "content": { "type": "string", "description": "Nội dung", "maxLength": 10000 },
+        "fileName": { "type": "string", "description": "Tên tệp", "maxLength": 200 },
+        "score": { "type": "number", "description": "Điểm số" },
+        "feedback": { "type": "string", "description": "Nhận xét", "maxLength": 2000 }
+      },
+      "required": ["id", "assignmentId", "studentId"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Bài kiểm tra trắc nghiệm",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã đề trắc nghiệm", "maxLength": 128 },
+        "classId": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "title": { "type": "string", "description": "Tiêu đề", "maxLength": 255 },
+        "subject": { "type": "string", "description": "Môn học", "maxLength": 100 },
+        "durationMinutes": { "type": "number", "description": "Thời gian làm bài" },
+        "attemptsCount": { "type": "number", "description": "Số lượt làm" },
+        "createdAt": { "type": "string", "description": "Thời gian tạo", "maxLength": 50 }
+      },
+      "required": ["id", "title", "subject"]
+    },
+    "QuizAttempt": {
+      "title": "QuizAttempt",
+      "description": "Lượt làm bài kiểm tra",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã lượt làm", "maxLength": 128 },
+        "quizId": { "type": "string", "description": "Mã bài kiểm tra", "maxLength": 128 },
+        "studentId": { "type": "string", "description": "Mã học sinh", "maxLength": 128 },
+        "studentName": { "type": "string", "description": "Tên học sinh", "maxLength": 100 },
+        "score": { "type": "number", "description": "Điểm số" },
+        "totalQuestions": { "type": "number", "description": "Tổng số câu" },
+        "completedAt": { "type": "string", "description": "Thời gian hoàn thành", "maxLength": 50 }
+      },
+      "required": ["id", "quizId", "studentId"]
+    },
+    "Behavior": {
+      "title": "Behavior",
+      "description": "Bản ghi khen thưởng / nề nếp thi đua",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã bản ghi", "maxLength": 128 },
+        "studentId": { "type": "string", "description": "Mã học sinh", "maxLength": 128 },
+        "studentName": { "type": "string", "description": "Tên học sinh", "maxLength": 100 },
+        "classId": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "type": { "type": "string", "description": "Loại", "enum": ["positive", "negative"] },
+        "category": { "type": "string", "description": "Danh mục", "maxLength": 100 },
+        "points": { "type": "number", "description": "Điểm sao" },
+        "note": { "type": "string", "description": "Chi tiết", "maxLength": 500 },
+        "teacherName": { "type": "string", "description": "Giáo viên ghi", "maxLength": 100 },
+        "date": { "type": "string", "description": "Ngày ghi", "maxLength": 50 }
+      },
+      "required": ["id", "studentId", "points", "type"]
+    },
+    "Alert": {
+      "title": "Alert",
+      "description": "Cảnh báo sớm học tập & chuyên cần",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã cảnh báo", "maxLength": 128 },
+        "classId": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "className": { "type": "string", "description": "Tên lớp", "maxLength": 50 },
+        "studentId": { "type": "string", "description": "Mã học sinh", "maxLength": 128 },
+        "studentName": { "type": "string", "description": "Tên học sinh", "maxLength": 100 },
+        "type": { "type": "string", "description": "Loại cảnh báo", "enum": ["attendance_drop", "grade_drop", "missing_homework", "behavior_concern"] },
+        "severity": { "type": "string", "description": "Mức độ", "enum": ["low", "medium", "high", "critical"] },
+        "title": { "type": "string", "description": "Tiêu đề", "maxLength": 200 },
+        "description": { "type": "string", "description": "Chi tiết", "maxLength": 2000 },
+        "status": { "type": "string", "description": "Trạng thái", "enum": ["new", "processing", "resolved", "dismissed"] },
+        "createdAt": { "type": "string", "description": "Thời gian tạo", "maxLength": 50 }
+      },
+      "required": ["id", "title", "severity", "status"]
     },
     "Announcement": {
       "title": "Announcement",
       "description": "Thông báo nhà trường và lớp học",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Mã thông báo",
-          "maxLength": 128
-        },
-        "title": {
-          "type": "string",
-          "description": "Tiêu đề thông báo",
-          "maxLength": 255
-        },
-        "content": {
-          "type": "string",
-          "description": "Nội dung thông báo",
-          "maxLength": 10000
-        },
-        "category": {
-          "type": "string",
-          "description": "Phân loại",
-          "maxLength": 50
-        },
-        "authorId": {
-          "type": "string",
-          "description": "Mã người đăng",
-          "maxLength": 128
-        },
-        "authorName": {
-          "type": "string",
-          "description": "Tên người đăng",
-          "maxLength": 100
-        },
-        "targetRole": {
-          "type": "string",
-          "description": "Đối tượng nhận thông báo",
-          "maxLength": 50
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Thời gian tạo",
-          "maxLength": 50
-        }
+        "id": { "type": "string", "description": "Mã thông báo", "maxLength": 128 },
+        "title": { "type": "string", "description": "Tiêu đề", "maxLength": 255 },
+        "content": { "type": "string", "description": "Nội dung", "maxLength": 10000 },
+        "category": { "type": "string", "description": "Phân loại", "maxLength": 50 },
+        "authorId": { "type": "string", "description": "Mã người đăng", "maxLength": 128 },
+        "authorName": { "type": "string", "description": "Tên người đăng", "maxLength": 100 },
+        "targetRole": { "type": "string", "description": "Đối tượng nhận", "maxLength": 50 },
+        "createdAt": { "type": "string", "description": "Thời gian tạo", "maxLength": 50 }
       },
       "required": ["id", "title", "content", "authorId"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Tiết học trong thời khóa biểu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã tiết", "maxLength": 128 },
+        "classId": { "type": "string", "description": "Mã lớp", "maxLength": 128 },
+        "className": { "type": "string", "description": "Tên lớp", "maxLength": 50 },
+        "dayOfWeek": { "type": "number", "description": "Thứ trong tuần (2 - 8)" },
+        "period": { "type": "number", "description": "Tiết học (1 - 10)" },
+        "timeRange": { "type": "string", "description": "Khung giờ học", "maxLength": 50 },
+        "subject": { "type": "string", "description": "Môn học", "maxLength": 100 },
+        "teacherName": { "type": "string", "description": "Tên giáo viên", "maxLength": 100 },
+        "room": { "type": "string", "description": "Phòng học", "maxLength": 50 }
+      },
+      "required": ["id", "dayOfWeek", "period", "subject"]
+    },
+    "Resource": {
+      "title": "Resource",
+      "description": "Kho tài liệu số và học liệu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã tài liệu", "maxLength": 128 },
+        "title": { "type": "string", "description": "Tiêu đề", "maxLength": 255 },
+        "subject": { "type": "string", "description": "Môn học", "maxLength": 100 },
+        "gradeLevel": { "type": "number", "description": "Khối lớp" },
+        "fileType": { "type": "string", "description": "Loại file", "maxLength": 50 },
+        "fileSize": { "type": "string", "description": "Dung lượng", "maxLength": 50 },
+        "downloadUrl": { "type": "string", "description": "Đường dẫn tải", "maxLength": 500 },
+        "uploadedBy": { "type": "string", "description": "Người tải lên", "maxLength": 100 },
+        "uploadedAt": { "type": "string", "description": "Thời gian tải", "maxLength": 50 }
+      },
+      "required": ["id", "title", "subject"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Tin nhắn giữa giáo viên và phụ huynh",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã tin nhắn", "maxLength": 128 },
+        "senderId": { "type": "string", "description": "Người gửi", "maxLength": 128 },
+        "senderName": { "type": "string", "description": "Tên người gửi", "maxLength": 100 },
+        "receiverId": { "type": "string", "description": "Người nhận", "maxLength": 128 },
+        "receiverName": { "type": "string", "description": "Tên người nhận", "maxLength": 100 },
+        "content": { "type": "string", "description": "Nội dung", "maxLength": 5000 },
+        "timestamp": { "type": "string", "description": "Thời gian", "maxLength": 50 },
+        "read": { "type": "boolean", "description": "Đã đọc" }
+      },
+      "required": ["id", "senderId", "receiverId", "content"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Nhật ký hệ thống",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã log", "maxLength": 128 },
+        "action": { "type": "string", "description": "Hành động", "maxLength": 100 },
+        "category": { "type": "string", "description": "Danh mục", "maxLength": 50 },
+        "userId": { "type": "string", "description": "Mã người thực hiện", "maxLength": 128 },
+        "userName": { "type": "string", "description": "Tên người thực hiện", "maxLength": 100 },
+        "userRole": { "type": "string", "description": "Vai trò", "maxLength": 50 },
+        "details": { "type": "string", "description": "Chi tiết", "maxLength": 2000 },
+        "ipAddress": { "type": "string", "description": "IP", "maxLength": 50 },
+        "timestamp": { "type": "string", "description": "Thời gian", "maxLength": 50 }
+      },
+      "required": ["id", "action"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "Câu hỏi trong ngân hàng câu hỏi thông minh",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã câu hỏi", "maxLength": 128 },
+        "code": { "type": "string", "description": "Mã hiển thị", "maxLength": 64 },
+        "subject": { "type": "string", "description": "Môn học", "maxLength": 100 },
+        "gradeLevel": { "type": "number", "description": "Khối lớp" },
+        "className": { "type": "string", "description": "Lớp học", "maxLength": 50 },
+        "chapter": { "type": "string", "description": "Chương", "maxLength": 200 },
+        "topic": { "type": "string", "description": "Chủ đề", "maxLength": 200 },
+        "type": { "type": "string", "description": "Dạng câu hỏi", "enum": ["single_choice", "multiple_choice", "true_false", "fill_blank", "essay"] },
+        "difficulty": { "type": "string", "description": "Mức độ", "enum": ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"] },
+        "status": { "type": "string", "description": "Trạng thái", "enum": ["approved", "pending", "draft", "rejected", "archived"] },
+        "content": { "type": "string", "description": "Nội dung", "maxLength": 10000 },
+        "authorId": { "type": "string", "description": "UID người tạo", "maxLength": 128 },
+        "authorName": { "type": "string", "description": "Tên tác giả", "maxLength": 100 },
+        "createdAt": { "type": "string", "description": "Thời gian tạo", "maxLength": 50 },
+        "updatedAt": { "type": "string", "description": "Thời gian cập nhật", "maxLength": 50 }
+      },
+      "required": ["id", "code", "subject", "gradeLevel", "type", "difficulty", "status", "content", "authorId"]
     },
     "TestConnection": {
       "title": "TestConnection",
       "description": "Tài liệu kiểm tra kết nối Firestore",
       "type": "object",
       "properties": {
-        "status": {
-          "type": "string",
-          "description": "Trạng thái kết nối",
-          "maxLength": 50
-        }
+        "status": { "type": "string", "description": "Trạng thái kết nối", "maxLength": 50 }
       }
     }
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": "User",
-      "description": "Lưu trữ hồ sơ người dùng trong hệ thống"
-    },
-    "/questions/{questionId}": {
-      "schema": "Question",
-      "description": "Lưu trữ câu hỏi trong Ngân hàng câu hỏi"
-    },
-    "/classes/{classId}": {
-      "schema": "Class",
-      "description": "Lưu trữ danh sách lớp học"
-    },
-    "/schedules/{scheduleId}": {
-      "schema": "Schedule",
-      "description": "Lưu trữ các mục thời khóa biểu"
-    },
-    "/announcements/{announcementId}": {
-      "schema": "Announcement",
-      "description": "Lưu trữ thông báo toàn trường và theo lớp"
-    },
-    "/test/{testId}": {
-      "schema": "TestConnection",
-      "description": "Kiểm tra kết nối tới Cloud Firestore"
-    }
+    "/users/{userId}": { "schema": "User", "description": "Hồ sơ người dùng" },
+    "/schools/{schoolId}": { "schema": "School", "description": "Thông tin trường học" },
+    "/classes/{classId}": { "schema": "Class", "description": "Danh sách lớp học" },
+    "/students/{studentId}": { "schema": "Student", "description": "Hồ sơ học sinh" },
+    "/attendance/{attendanceId}": { "schema": "Attendance", "description": "Dữ liệu điểm danh" },
+    "/grades/{gradeId}": { "schema": "Grade", "description": "Sổ điểm học sinh" },
+    "/gradeHistory/{historyId}": { "schema": "GradeHistory", "description": "Lịch sử sửa điểm" },
+    "/assignments/{assignmentId}": { "schema": "Assignment", "description": "Danh sách bài tập" },
+    "/submissions/{submissionId}": { "schema": "Submission", "description": "Bài nộp học sinh" },
+    "/quizzes/{quizId}": { "schema": "Quiz", "description": "Bài kiểm tra trắc nghiệm" },
+    "/quizAttempts/{attemptId}": { "schema": "QuizAttempt", "description": "Lượt làm bài kiểm tra" },
+    "/behaviors/{behaviorId}": { "schema": "Behavior", "description": "Nề nếp & điểm thi đua" },
+    "/alerts/{alertId}": { "schema": "Alert", "description": "Cảnh báo thông minh" },
+    "/announcements/{announcementId}": { "schema": "Announcement", "description": "Thông báo nhà trường" },
+    "/schedules/{scheduleId}": { "schema": "Schedule", "description": "Thời khóa biểu" },
+    "/resources/{resourceId}": { "schema": "Resource", "description": "Kho tài liệu số" },
+    "/messages/{messageId}": { "schema": "Message", "description": "Tin nhắn trao đổi" },
+    "/auditLogs/{logId}": { "schema": "AuditLog", "description": "Nhật ký hệ thống" },
+    "/questions/{questionId}": { "schema": "Question", "description": "Ngân hàng câu hỏi" },
+    "/test/{testId}": { "schema": "TestConnection", "description": "Kiểm tra kết nối Firestore" }
   }
 }

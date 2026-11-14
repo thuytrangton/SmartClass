@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText,
   Plus,
@@ -33,7 +33,8 @@ import {
   GitCompare,
   CheckSquare,
   Cloud,
-  CloudUpload
+  CloudUpload,
+  FolderKanban
 } from 'lucide-react';
 import { useClass } from '../../contexts/ClassContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -90,6 +91,7 @@ export const QuizManager: React.FC = () => {
   const { selectedClassId, selectedClass } = useClass();
   const { success, warning, error, info } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Main View Mode: 'bank' (Ngân hàng câu hỏi thông minh) | 'class_quizzes' (Bộ đề kiểm tra của lớp)
@@ -110,6 +112,19 @@ export const QuizManager: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterQuality, setFilterQuality] = useState<'ALL' | 'NEEDS_CHECK' | 'DUPLICATE' | 'VALID'>('ALL');
   const [sortBy, setSortBy] = useState<'newest' | 'code' | 'difficulty' | 'duplicate'>('newest');
+
+  // Topic Question Manager Screen State (Quản lý câu hỏi theo chủ đề đang chọn)
+  const [isTopicManagerOpen, setIsTopicManagerOpen] = useState(false);
+  const [managedTopic, setManagedTopic] = useState<string>('');
+  const [topicManagerSearch, setTopicManagerSearch] = useState<string>('');
+  const [topicManagerDifficulty, setTopicManagerDifficulty] = useState<string>('ALL');
+  const [topicManagerType, setTopicManagerType] = useState<string>('ALL');
+  const [topicManagerStatus, setTopicManagerStatus] = useState<string>('ALL');
+  const [isRenamingTopic, setIsRenamingTopic] = useState<boolean>(false);
+  const [renameTopicValue, setRenameTopicValue] = useState<string>('');
+  const [customTopics, setCustomTopics] = useState<string[]>([]);
+  const [newTopicInput, setNewTopicInput] = useState<string>('');
+  const [isAddingNewTopic, setIsAddingNewTopic] = useState<boolean>(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -243,7 +258,7 @@ export const QuizManager: React.FC = () => {
   }, [questions, filterSubject]);
 
   const availableTopics = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(customTopics);
     questions.forEach((q) => {
       if (
         (filterSubject === 'ALL' || q.subject === filterSubject) &&
@@ -254,7 +269,198 @@ export const QuizManager: React.FC = () => {
       }
     });
     return Array.from(set);
-  }, [questions, filterSubject, filterChapter]);
+  }, [questions, filterSubject, filterChapter, customTopics]);
+
+  // Toàn bộ danh sách chủ đề kèm số lượng câu hỏi của từng chủ đề
+  const allTopicsSummary = useMemo(() => {
+    const map = new Map<string, { topic: string; count: number; approved: number; pending: number; subject: string; chapter: string; gradeLevel: number }>();
+    customTopics.forEach((t) => {
+      if (t.trim()) {
+        map.set(t.trim(), {
+          topic: t.trim(),
+          count: 0,
+          approved: 0,
+          pending: 0,
+          subject: filterSubject !== 'ALL' ? filterSubject : 'Toán học',
+          chapter: filterChapter !== 'ALL' ? filterChapter : 'Chương 2: Hàm số bậc hai và đồ thị',
+          gradeLevel: filterGrade !== 'ALL' ? Number(filterGrade) : 10
+        });
+      }
+    });
+    questions.forEach((q) => {
+      const t = (q.topic || 'Chủ đề chung').trim();
+      const existing = map.get(t);
+      if (existing) {
+        existing.count += 1;
+        if (q.status === 'approved') existing.approved += 1;
+        if (q.status === 'pending') existing.pending += 1;
+      } else {
+        map.set(t, {
+          topic: t,
+          count: 1,
+          approved: q.status === 'approved' ? 1 : 0,
+          pending: q.status === 'pending' ? 1 : 0,
+          subject: q.subject,
+          chapter: q.chapter,
+          gradeLevel: q.gradeLevel
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [questions, customTopics, filterSubject, filterChapter, filterGrade]);
+
+  // Mở màn hình Quản lý câu hỏi theo chủ đề đang chọn
+  const handleOpenTopicManager = (targetTopic?: string) => {
+    const chosen =
+      targetTopic && targetTopic !== 'ALL'
+        ? targetTopic.trim()
+        : filterTopic !== 'ALL'
+        ? filterTopic
+        : availableTopics[0] || allTopicsSummary[0]?.topic || 'Hàm số bậc hai';
+
+    if (chosen && !allTopicsSummary.some((item) => item.topic === chosen)) {
+      setCustomTopics((prev) => (prev.includes(chosen) ? prev : [...prev, chosen]));
+    }
+
+    setManagedTopic(chosen);
+    setRenameTopicValue(chosen);
+    setIsRenamingTopic(false);
+    setTopicManagerSearch('');
+    setTopicManagerDifficulty('ALL');
+    setTopicManagerType('ALL');
+    setTopicManagerStatus('ALL');
+    setIsTopicManagerOpen(true);
+  };
+
+  // Tự động mở màn hình quản lý câu hỏi theo chủ đề nếu điều hướng từ trang khác qua URL (?topic=...&manageTopic=1)
+  useEffect(() => {
+    const topicParam = searchParams.get('topic');
+    const manageParam = searchParams.get('manageTopic');
+    if (topicParam) {
+      setFilterTopic(topicParam);
+      if (manageParam === '1' || manageParam === 'true') {
+        handleOpenTopicManager(topicParam);
+        const next = new URLSearchParams(searchParams);
+        next.delete('manageTopic');
+        setSearchParams(next, { replace: true });
+      }
+    }
+  }, [searchParams]);
+
+  // Danh sách câu hỏi thuộc chủ đề đang chọn trong màn hình Quản lý theo chủ đề
+  const managedTopicAllQuestions = useMemo(() => {
+    if (!managedTopic) return [];
+    return questions.filter((q) => (q.topic || 'Chủ đề chung').trim() === managedTopic.trim());
+  }, [questions, managedTopic]);
+
+  const managedTopicFilteredQuestions = useMemo(() => {
+    const qLower = topicManagerSearch.trim().toLowerCase();
+    return managedTopicAllQuestions.filter((q) => {
+      if (topicManagerDifficulty !== 'ALL' && q.difficulty !== topicManagerDifficulty) return false;
+      if (topicManagerType !== 'ALL' && q.type !== topicManagerType) return false;
+      if (topicManagerStatus !== 'ALL' && q.status !== topicManagerStatus) return false;
+      if (qLower) {
+        const inContent = q.content.toLowerCase().includes(qLower);
+        const inCode = q.code.toLowerCase().includes(qLower);
+        if (!inContent && !inCode) return false;
+      }
+      return true;
+    });
+  }, [managedTopicAllQuestions, topicManagerSearch, topicManagerDifficulty, topicManagerType, topicManagerStatus]);
+
+  // Đổi tên chủ đề cho toàn bộ câu hỏi thuộc chủ đề đang chọn
+  const handleSaveRenameTopic = () => {
+    const nextName = renameTopicValue.trim();
+    if (!nextName) {
+      warning('Tên chủ đề trống', 'Vui lòng nhập tên chủ đề hợp lệ.');
+      return;
+    }
+    if (nextName === managedTopic) {
+      setIsRenamingTopic(false);
+      return;
+    }
+    const idsToUpdate = managedTopicAllQuestions.map((q) => q.id);
+    if (idsToUpdate.length > 0) {
+      questionBankService.bulkUpdateMetadata(idsToUpdate, { topic: nextName });
+      refreshBank();
+    }
+    setCustomTopics((prev) => {
+      const filtered = prev.filter((t) => t !== managedTopic);
+      return filtered.includes(nextName) ? filtered : [...filtered, nextName];
+    });
+    if (filterTopic === managedTopic) {
+      setFilterTopic(nextName);
+    }
+    setManagedTopic(nextName);
+    setIsRenamingTopic(false);
+    success('Đã đổi tên chủ đề', `Đã cập nhật tên chủ đề thành "${nextName}" cho ${idsToUpdate.length} câu hỏi.`);
+  };
+
+  // Thêm chủ đề mới vào danh sách
+  const handleAddNewTopicItem = () => {
+    const trimmed = newTopicInput.trim();
+    if (!trimmed) {
+      warning('Thiếu tên chủ đề', 'Vui lòng nhập tên chủ đề mới.');
+      return;
+    }
+    if (!customTopics.includes(trimmed)) {
+      setCustomTopics((prev) => [...prev, trimmed]);
+    }
+    setManagedTopic(trimmed);
+    setRenameTopicValue(trimmed);
+    setNewTopicInput('');
+    setIsAddingNewTopic(false);
+    success('Đã tạo chủ đề mới', `Chủ đề "${trimmed}" đã sẵn sàng để thêm câu hỏi.`);
+  };
+
+  // Mở modal thêm câu hỏi gắn sẵn chủ đề đang quản lý
+  const handleCreateQuestionInManagedTopic = () => {
+    const topicMeta = allTopicsSummary.find((t) => t.topic === managedTopic);
+    const subj = topicMeta?.subject || (filterSubject !== 'ALL' ? filterSubject : 'Toán học');
+    const grd = topicMeta?.gradeLevel || (filterGrade !== 'ALL' ? Number(filterGrade) : 10);
+    const chap = topicMeta?.chapter || (filterChapter !== 'ALL' ? filterChapter : 'Chương 2: Hàm số bậc hai và đồ thị');
+
+    setEditingQuestion(null);
+    setFormCode(questionBankService.generateNextCode(subj, grd, questions));
+    setFormSubject(subj);
+    setFormGrade(grd);
+    setFormChapter(chap);
+    setFormTopic(managedTopic);
+    setFormType('single_choice');
+    setFormDifficulty('Thông hiểu');
+    setFormStatus('approved');
+    setFormContent('');
+    setFormOptions([
+      { id: 'o-1', label: 'A', text: '', isCorrect: true },
+      { id: 'o-2', label: 'B', text: '', isCorrect: false },
+      { id: 'o-3', label: 'C', text: '', isCorrect: false },
+      { id: 'o-4', label: 'D', text: '', isCorrect: false }
+    ]);
+    setFormStatements([
+      { id: 's-1', label: 'a', content: '', isTrue: true },
+      { id: 's-2', label: 'b', content: '', isTrue: false },
+      { id: 's-3', label: 'c', content: '', isTrue: true },
+      { id: 's-4', label: 'd', content: '', isTrue: false }
+    ]);
+    setFormAcceptedAnswers('');
+    setFormRubric('');
+    setFormMaxPoints(0.25);
+    setFormExplanation('');
+    setFormTags('');
+    setIsEditorOpen(true);
+  };
+
+  // Mở modal tạo câu hỏi AI gắn sẵn chủ đề đang quản lý
+  const handleOpenAiForManagedTopic = () => {
+    const topicMeta = allTopicsSummary.find((t) => t.topic === managedTopic);
+    if (topicMeta) {
+      setAiSubject(topicMeta.subject);
+      setAiGrade(topicMeta.gradeLevel);
+      setAiChapter(topicMeta.chapter);
+    }
+    setAiTopic(managedTopic);
+    setIsAiModalOpen(true);
+  };
 
   // Statistics
   const stats = useMemo(() => {
@@ -884,6 +1090,15 @@ export const QuizManager: React.FC = () => {
         </button>
 
         <button
+          onClick={() => handleOpenTopicManager(filterTopic !== 'ALL' ? filterTopic : undefined)}
+          className="inline-flex items-center gap-2 px-3.5 py-2 bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
+          title="Mở màn hình quản lý tất cả câu hỏi thuộc chủ đề đang chọn"
+        >
+          <FolderKanban className="w-4 h-4 text-cyan-400" />
+          Quản lý câu hỏi theo chủ đề
+        </button>
+
+        <button
           onClick={() => setIsImportModalOpen(true)}
           className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
         >
@@ -978,7 +1193,7 @@ export const QuizManager: React.FC = () => {
 
       {/* VIEW SWITCHER: KHO CÂU HỎI vs BỘ ĐỀ KIỂM TRA LỚP HỌC */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0f172a] p-2 rounded-xl border border-slate-800">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setActiveView('bank')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
@@ -998,6 +1213,14 @@ export const QuizManager: React.FC = () => {
             }`}
           >
             Bộ đề kiểm tra của lớp {selectedClass?.name || '10A1'} ({quizzes.length})
+          </button>
+          <button
+            onClick={() => handleOpenTopicManager(filterTopic !== 'ALL' ? filterTopic : undefined)}
+            className="px-3.5 py-2 rounded-lg text-xs font-bold bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-800/70 flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Mở màn hình quản lý tất cả câu hỏi thuộc chủ đề đang chọn"
+          >
+            <FolderKanban className="w-3.5 h-3.5 text-cyan-400" />
+            Quản lý câu hỏi theo chủ đề ({allTopicsSummary.length} chủ đề)
           </button>
         </div>
 
@@ -1134,22 +1357,36 @@ export const QuizManager: React.FC = () => {
                 ))}
               </select>
 
-              {/* Topic Filter */}
-              <select
-                value={filterTopic}
-                onChange={(e) => {
-                  setFilterTopic(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
-              >
-                <option value="ALL">Tất cả chủ đề</option>
-                {availableTopics.map((t) => (
-                  <option key={t} value={t}>
-                    Chủ đề: {t}
-                  </option>
-                ))}
-              </select>
+              {/* Topic Filter + Icon [Quản lý câu hỏi theo chủ đề] */}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={filterTopic}
+                  onChange={(e) => {
+                    setFilterTopic(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="flex-1 min-w-0 px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="ALL">Tất cả chủ đề</option>
+                  {availableTopics.map((t) => (
+                    <option key={t} value={t}>
+                      Chủ đề: {t}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => handleOpenTopicManager(filterTopic !== 'ALL' ? filterTopic : undefined)}
+                  title={
+                    filterTopic !== 'ALL'
+                      ? `Quản lý tất cả câu hỏi thuộc chủ đề: "${filterTopic}"`
+                      : 'Mở màn hình quản lý câu hỏi theo chủ đề đang chọn'
+                  }
+                  className="p-2 rounded-xl bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-xs"
+                >
+                  <FolderKanban className="w-4 h-4 text-cyan-400" />
+                </button>
+              </div>
 
               {/* Difficulty Filter */}
               <select
@@ -1385,12 +1622,15 @@ export const QuizManager: React.FC = () => {
                             <div className="text-[11px] text-slate-400 mt-0.5">
                               {q.subject} · Khối {q.gradeLevel}
                             </div>
-                            <div
-                              className="text-[11px] text-slate-500 mt-1 line-clamp-1"
-                              title={q.chapter}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTopicManager(q.topic)}
+                              className="text-[11px] text-cyan-400 hover:text-cyan-300 mt-1 flex items-center gap-1 text-left cursor-pointer group"
+                              title={`Quản lý tất cả câu hỏi thuộc chủ đề: "${q.topic}"`}
                             >
-                              {q.topic}
-                            </div>
+                              <FolderKanban className="w-3 h-3 shrink-0 text-cyan-400" />
+                              <span className="line-clamp-1 group-hover:underline">{q.topic}</span>
+                            </button>
                           </td>
 
                           {/* Question Content & Preview */}
@@ -1556,6 +1796,13 @@ export const QuizManager: React.FC = () => {
                           {/* Actions */}
                           <td className="p-3.5 align-top text-right">
                             <div className="inline-flex items-center gap-1">
+                              <button
+                                onClick={() => handleOpenTopicManager(q.topic)}
+                                className="p-1.5 rounded-lg text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/60 transition-colors cursor-pointer"
+                                title={`Quản lý câu hỏi theo chủ đề: "${q.topic}"`}
+                              >
+                                <FolderKanban className="w-4 h-4" />
+                              </button>
                               <button
                                 onClick={() => setDetailQuestion(q)}
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors cursor-pointer"
@@ -1848,14 +2095,40 @@ export const QuizManager: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Chủ đề kiến thức</label>
-              <input
-                type="text"
-                value={formTopic}
-                onChange={(e) => setFormTopic(e.target.value)}
-                placeholder="VD: Dấu của tam thức bậc hai"
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-slate-400 font-semibold">Chủ đề kiến thức</label>
+                <button
+                  type="button"
+                  onClick={() => handleOpenTopicManager(formTopic || undefined)}
+                  className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
+                  title="Mở màn hình quản lý tất cả câu hỏi thuộc chủ đề đang chọn"
+                >
+                  <FolderKanban className="w-3.5 h-3.5" /> Quản lý câu hỏi theo chủ đề
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  list="existing-topics-datalist"
+                  value={formTopic}
+                  onChange={(e) => setFormTopic(e.target.value)}
+                  placeholder="VD: Dấu của tam thức bậc hai"
+                  className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100"
+                />
+                <datalist id="existing-topics-datalist">
+                  {allTopicsSummary.map((t) => (
+                    <option key={t.topic} value={t.topic} />
+                  ))}
+                </datalist>
+                <button
+                  type="button"
+                  onClick={() => handleOpenTopicManager(formTopic || undefined)}
+                  className="p-2 rounded-xl bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 cursor-pointer shrink-0"
+                  title="Mở màn hình quản lý câu hỏi thuộc chủ đề này"
+                >
+                  <FolderKanban className="w-4 h-4 text-cyan-400" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -3366,6 +3639,370 @@ export const QuizManager: React.FC = () => {
         cancelText="Hủy bỏ"
         isDanger={true}
       />
+
+      {/* =====================================================================
+          MODAL 9: MÀN HÌNH QUẢN LÝ TẤT CẢ CÂU HỎI THEO CHỦ ĐỀ ĐANG CHỌN
+         ===================================================================== */}
+      <Modal
+        isOpen={isTopicManagerOpen}
+        onClose={() => setIsTopicManagerOpen(false)}
+        title={`Quản lý câu hỏi theo chủ đề: ${managedTopic || 'Tất cả chủ đề'}`}
+        subtitle="Xem, thêm mới, chỉnh sửa, duyệt nhanh và quản lý tập trung toàn bộ câu hỏi thuộc chủ đề đang chọn"
+        maxWidth="4xl"
+      >
+        <div className="space-y-4 text-xs">
+          {/* Thanh chọn nhanh Chủ đề + Tạo chủ đề mới */}
+          <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                <FolderKanban className="w-4 h-4 text-cyan-400" />
+                Danh sách chủ đề trong Ngân hàng ({allTopicsSummary.length} chủ đề):
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAddingNewTopic((prev) => !prev)}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Tạo chủ đề mới
+              </button>
+            </div>
+
+            {isAddingNewTopic && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  value={newTopicInput}
+                  onChange={(e) => setNewTopicInput(e.target.value)}
+                  placeholder="Nhập tên chủ đề kiến thức mới..."
+                  className="flex-1 px-3 py-1.5 rounded-xl bg-slate-950 border border-cyan-600 text-slate-100 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddNewTopicItem}
+                  className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold cursor-pointer"
+                >
+                  Lưu chủ đề
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingNewTopic(false)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer"
+                >
+                  Hủy
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {allTopicsSummary.map((item) => {
+                const active = item.topic === managedTopic;
+                return (
+                  <button
+                    key={item.topic}
+                    type="button"
+                    onClick={() => {
+                      setManagedTopic(item.topic);
+                      setRenameTopicValue(item.topic);
+                      setIsRenamingTopic(false);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+                      active
+                        ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950/50'
+                        : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                    }`}
+                  >
+                    <span>{item.topic}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                        active ? 'bg-white/20 text-white' : 'bg-slate-800 text-cyan-400'
+                      }`}
+                    >
+                      {item.count} câu
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Header thông tin Chủ đề đang chọn & Các nút thao tác */}
+          <div className="p-4 rounded-2xl bg-slate-900/90 border border-cyan-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                  Chủ đề đang chọn
+                </span>
+                {!isRenamingTopic ? (
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-white">{managedTopic}</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenameTopicValue(managedTopic);
+                        setIsRenamingTopic(true);
+                      }}
+                      className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 cursor-pointer"
+                      title="Đổi tên chủ đề này"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1 max-w-md">
+                    <input
+                      type="text"
+                      value={renameTopicValue}
+                      onChange={(e) => setRenameTopicValue(e.target.value)}
+                      className="flex-1 px-2.5 py-1 rounded-lg bg-slate-950 border border-cyan-500 text-slate-100 font-bold"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveRenameTopic}
+                      className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer"
+                    >
+                      Lưu tên
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsRenamingTopic(false)}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-1">
+                <span>
+                  Tổng số: <strong className="text-slate-100">{managedTopicAllQuestions.length} câu hỏi</strong>
+                </span>
+                <span>
+                  Trắc nghiệm:{' '}
+                  <strong className="text-cyan-300">
+                    {managedTopicAllQuestions.filter((q) => q.type !== 'essay').length} câu
+                  </strong>
+                </span>
+                <span>
+                  Tự luận:{' '}
+                  <strong className="text-purple-300">
+                    {managedTopicAllQuestions.filter((q) => q.type === 'essay').length} câu
+                  </strong>
+                </span>
+                <span>
+                  Đã duyệt:{' '}
+                  <strong className="text-emerald-400">
+                    {managedTopicAllQuestions.filter((q) => q.status === 'approved').length} câu
+                  </strong>
+                </span>
+                <span>
+                  Chờ duyệt:{' '}
+                  <strong className="text-amber-400">
+                    {managedTopicAllQuestions.filter((q) => q.status === 'pending').length} câu
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleCreateQuestionInManagedTopic}
+                className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi vào chủ đề
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenAiForManagedTopic}
+                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Sinh AI cho chủ đề
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterTopic(managedTopic);
+                  setIsTopicManagerOpen(false);
+                }}
+                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold cursor-pointer"
+              >
+                Lọc trên bảng chính
+              </button>
+            </div>
+          </div>
+
+          {/* Bộ lọc nhanh bên trong Chủ đề đang chọn */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={topicManagerSearch}
+                onChange={(e) => setTopicManagerSearch(e.target.value)}
+                placeholder="Tìm câu hỏi trong chủ đề này..."
+                className="w-full pl-8 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            <select
+              value={topicManagerType}
+              onChange={(e) => setTopicManagerType(e.target.value)}
+              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-200"
+            >
+              <option value="ALL">Tất cả dạng câu hỏi</option>
+              {(Object.keys(QUESTION_TYPE_LABELS) as QuestionType[]).map((t) => (
+                <option key={t} value={t}>
+                  {QUESTION_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={topicManagerDifficulty}
+              onChange={(e) => setTopicManagerDifficulty(e.target.value)}
+              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-200"
+            >
+              <option value="ALL">Tất cả mức độ</option>
+              {DIFFICULTY_LIST.map((d) => (
+                <option key={d} value={d}>
+                  Mức độ: {d}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={topicManagerStatus}
+              onChange={(e) => setTopicManagerStatus(e.target.value)}
+              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-200"
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              {(Object.keys(QUESTION_STATUS_LABELS) as QuestionStatus[]).map((s) => (
+                <option key={s} value={s}>
+                  {QUESTION_STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Danh sách câu hỏi thuộc Chủ đề đang chọn */}
+          {managedTopicFilteredQuestions.length === 0 ? (
+            <div className="p-8 text-center rounded-2xl bg-slate-900/70 border border-dashed border-slate-800 space-y-2">
+              <p className="text-sm font-bold text-slate-200">
+                Chưa có câu hỏi nào trong chủ đề "{managedTopic}"
+              </p>
+              <p className="text-slate-400">
+                Hãy bấm "Thêm câu hỏi vào chủ đề" hoặc "Sinh AI cho chủ đề" để bổ sung câu hỏi.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+              {managedTopicFilteredQuestions.map((q, idx) => (
+                <div
+                  key={q.id}
+                  className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-3"
+                >
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-cyan-400">
+                        #{idx + 1} · {q.code}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold text-[11px]">
+                        {QUESTION_TYPE_LABELS[q.type]}
+                      </span>
+                      {renderDifficultyText(q.difficulty)}
+                      {renderStatusBadge(q.status)}
+                    </div>
+
+                    <p className="font-semibold text-slate-100 text-xs leading-relaxed">{q.content}</p>
+
+                    {(q.type === 'single_choice' || q.type === 'multiple_choice') && q.options.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                        {q.options.map((opt) => (
+                          <div
+                            key={opt.id}
+                            className={`px-2.5 py-1 rounded border text-[11px] truncate ${
+                              opt.isCorrect
+                                ? 'bg-emerald-950/60 border-emerald-800 text-emerald-300 font-bold'
+                                : 'bg-slate-950 border-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {opt.label}. {opt.text}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {q.type === 'essay' && (
+                      <p className="text-[11px] text-purple-300">
+                        Hướng dẫn chấm ({q.maxPoints}đ): {q.rubric || 'Chưa cập nhật'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start">
+                    {q.status === 'pending' && (
+                      <button
+                        type="button"
+                        onClick={() => handleQuickStatusChange(q.id, 'approved')}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] cursor-pointer"
+                      >
+                        Duyệt
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setDetailQuestion(q)}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 cursor-pointer"
+                      title="Xem chi tiết"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(q)}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 cursor-pointer"
+                      title="Chỉnh sửa câu hỏi"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicate(q)}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 cursor-pointer"
+                      title="Nhân bản câu hỏi"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => requestDelete([q.id])}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 cursor-pointer"
+                      title="Xóa câu hỏi"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+            <span className="text-slate-400">
+              Hiển thị <strong className="text-slate-200">{managedTopicFilteredQuestions.length}</strong> /{' '}
+              {managedTopicAllQuestions.length} câu hỏi thuộc chủ đề "{managedTopic}"
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsTopicManagerOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer"
+            >
+              Đóng màn hình chủ đề
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

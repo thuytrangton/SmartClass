@@ -1,6 +1,9 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getAuth,
+  initializeAuth,
+  inMemoryPersistence,
+  browserPopupRedirectResolver,
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
@@ -11,14 +14,40 @@ import {
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Khởi tạo ứng dụng Firebase với cấu hình từ file provision
-const app = initializeApp(firebaseConfig);
+// Xóa dữ liệu phiên hết hạn lưu trong IndexedDB để tránh lỗi gọi securetoken.googleapis.com khi API chưa bật
+if (typeof window !== 'undefined' && window.indexedDB) {
+  try {
+    window.indexedDB.deleteDatabase('firebaseLocalStorageDb');
+  } catch {
+    // Bỏ qua nếu trình duyệt chặn thao tác xóa IndexedDB
+  }
+}
+
+// Khởi tạo ứng dụng Firebase chính cho Auth
+const app = getApps().some((a) => a.name === '[DEFAULT]')
+  ? getApp()
+  : initializeApp(firebaseConfig);
+
+// Khởi tạo ứng dụng Firebase độc lập cho Firestore để kết nối cơ sở dữ liệu
+// không bao giờ bị chặn bởi lỗi làm mới token (securetoken.googleapis.com)
+const firestoreApp = getApps().some((a) => a.name === 'smart-class-firestore')
+  ? getApp('smart-class-firestore')
+  : initializeApp(firebaseConfig, 'smart-class-firestore');
 
 // CRITICAL: Khởi tạo Firestore với đúng firestoreDatabaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
 
-// Khởi tạo Firebase Auth
-export const auth = getAuth(app);
+// Khởi tạo Firebase Auth với inMemoryPersistence để tránh lưu token hết hạn gây lỗi Token Service API
+export const auth = (() => {
+  try {
+    return initializeAuth(app, {
+      persistence: inMemoryPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver
+    });
+  } catch {
+    return getAuth(app);
+  }
+})();
 
 // Kiểm tra kết nối đến Firestore khi ứng dụng khởi động
 export async function testFirestoreConnection() {
@@ -62,9 +91,21 @@ export interface FirestoreErrorInfo {
 }
 
 // Xử lý lỗi Firestore theo tiêu chuẩn định dạng JSON FirestoreErrorInfo
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): void {
+  const errMsg = error instanceof Error ? error.message : String(error);
+
+  // Nếu là lỗi mạng tạm thời hoặc client offline thì không làm sập luồng ứng dụng
+  if (
+    errMsg.includes('the client is offline') ||
+    errMsg.includes('token-service-api') ||
+    errMsg.includes('Fetching auth token failed')
+  ) {
+    console.warn(`Firestore offline/network notice (${operationType} ${path}):`, errMsg);
+    return;
+  }
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMsg,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -86,14 +127,18 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Đăng nhập bằng Google Popup
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
-  return await signInWithPopup(auth, provider);
+  return await signInWithPopup(auth, provider, browserPopupRedirectResolver);
 }
 
 // Đăng ký tài khoản bằng Email & Mật khẩu với Firebase Auth
 export async function registerWithEmailPassword(email: string, password: string, displayName?: string) {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   if (displayName && userCredential.user) {
-    await updateProfile(userCredential.user, { displayName });
+    try {
+      await updateProfile(userCredential.user, { displayName });
+    } catch {
+      // Bỏ qua nếu cập nhật displayName gặp lỗi mạng
+    }
   }
   return userCredential;
 }

@@ -856,17 +856,28 @@ export const ClassList: React.FC = () => {
               {/* 4. Bài tập */}
               {activeWindowSubScreen === 'assignments' && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800">Danh sách bài tập</span>
-                    <button
-                      onClick={() => {
-                        setSelectedClassId(windowClass.id);
-                        navigate('/teacher/assignments');
-                      }}
-                      className="text-blue-600 font-bold hover:underline flex items-center gap-1"
-                    >
-                      Quản lý bài tập & chấm bài <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="font-bold text-slate-800">Danh sách bài tập của Lớp {windowClass.name}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedClassId(windowClass.id);
+                          navigate(`/teacher/assignments?action=create&classId=${windowClass.id}`);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                      >
+                        + Giao bài tập cho lớp {windowClass.name}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedClassId(windowClass.id);
+                          navigate(`/teacher/assignments?classId=${windowClass.id}`);
+                        }}
+                        className="text-blue-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        Quản lý bài tập & chấm bài <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {db.getAssignments(windowClass.id).map((a) => (
@@ -874,7 +885,14 @@ export const ClassList: React.FC = () => {
                         <div>
                           <h6 className="font-bold text-slate-900">{a.title}</h6>
                           <p className="text-[11px] text-slate-500">
-                            Môn: {a.subject} • Hạn nộp: {new Date(a.dueDate).toLocaleDateString('vi-VN')}
+                            Môn: {a.subject} • Hạn nộp:{' '}
+                            {new Date(a.dueDate).toLocaleString('vi-VN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            })}
                           </p>
                         </div>
                         <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-bold text-[11px]">
