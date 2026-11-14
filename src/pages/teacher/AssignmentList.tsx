@@ -1122,110 +1122,51 @@ export const AssignmentList: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Module Giao Bài Tập Thông Minh (SmartClass 4.0)"
-        subtitle="Quản lý chủ đề bài học, cấu hình đề kết hợp Trắc nghiệm & Tự luận từ Ngân hàng câu hỏi chung và theo dõi tiến độ nộp bài"
-        badge={
+        title={
           activeSubModule === 'topics'
-            ? '1. Quản lý chủ đề'
+            ? 'Quản lý chủ đề'
             : activeSubModule === 'create'
-            ? '2. Tạo bài tập (4 bước)'
-            : '3. Danh sách bài tập đã giao'
+            ? 'Tạo bài tập'
+            : 'Danh sách bài tập đã giao'
+        }
+        subtitle={
+          activeSubModule === 'topics'
+            ? 'Quản lý chủ đề bài học, giáo án giảng dạy và câu hỏi theo từng chủ đề'
+            : activeSubModule === 'create'
+            ? 'Thiết lập bài tập về nhà hoặc bài kiểm tra theo quy trình 4 bước'
+            : 'Theo dõi tiến độ nộp bài, chấm điểm và nhận xét kết quả học tập'
         }
       >
-        <div className="flex items-center gap-2.5">
+        {activeSubModule === 'topics' && (
           <button
             type="button"
-            onClick={() => navigate('/teacher/quizzes?manageTopic=1')}
-            title="[Quản lý câu hỏi theo chủ đề] Mở Ngân hàng câu hỏi theo chủ đề"
-            className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-2 cursor-pointer transition-all"
+            onClick={handleOpenCreateTopic}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-950/40 cursor-pointer shrink-0"
           >
-            <FolderKanban className="w-4 h-4 text-cyan-400" />
-            <span>Quản lý câu hỏi theo chủ đề</span>
+            <Plus className="w-4 h-4" /> Thêm chủ đề mới
           </button>
-          {activeSubModule !== 'create' && (
-            <button
-              type="button"
-              onClick={() => {
-                setWizardStep(1);
-                switchSubModule('create');
-              }}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-950/40 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Tạo bài tập mới
-            </button>
-          )}
-        </div>
+        )}
+        {activeSubModule === 'list' && (
+          <button
+            type="button"
+            onClick={() => {
+              setWizardStep(1);
+              switchSubModule('create');
+            }}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-950/40 cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Tạo bài tập mới
+          </button>
+        )}
       </PageHeader>
 
-      {/* Thanh điều hướng 3 Menu con & Bộ lọc tìm kiếm Chủ đề ngay tại vị trí đầu trang */}
-      <div className="bg-[#0f172a] p-3.5 rounded-2xl border border-slate-800 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => switchSubModule('topics')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeSubModule === 'topics'
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <FolderKanban className="w-4 h-4" />
-              <span>1. Quản lý chủ đề</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/20">
-                {allTopics.filter((t) => t.status === 'active').length}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => switchSubModule('create')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeSubModule === 'create'
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>2. Tạo bài tập (Quy trình 4 bước)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => switchSubModule('list')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeSubModule === 'list'
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <ListChecks className="w-4 h-4" />
-              <span>3. Danh sách bài tập đã giao</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/20">
-                {allAssignments.length}
-              </span>
-            </button>
-          </div>
-
-          {activeSubModule === 'topics' ? (
-            <button
-              type="button"
-              onClick={handleOpenCreateTopic}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-2 shadow-md cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" /> Thêm chủ đề mới
-            </button>
-          ) : (
-            <div className="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Liên kết trực tiếp Ngân hàng câu hỏi chung ({allBankQuestions.length} câu)</span>
-            </div>
-          )}
-        </div>
-
-        {/* Hàng tìm kiếm & lọc chủ đề: 1. Textbox tìm kiếm chủ đề -> 2. Combobox Tất cả các lớp -> 3. Combobox môn học -> 4. Combobox trạng thái */}
-        {activeSubModule === 'topics' && (
-          <div className="pt-3 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      {/* ===================================================================== */}
+      {/* MÀN HÌNH 1: QUẢN LÝ CHỦ ĐỀ (TOPICS)                                   */}
+      {/* ===================================================================== */}
+      {activeSubModule === 'topics' && (
+        <div className="space-y-5">
+          {/* Thanh tìm kiếm & lọc chủ đề: 1. Textbox tìm kiếm chủ đề -> 2. Combobox Tất cả các lớp -> 3. Combobox môn học -> 4. Combobox trạng thái */}
+          <div className="bg-[#0f172a] p-3.5 rounded-2xl border border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             {/* 1. Textbox tìm kiếm chủ đề */}
             <div className="relative w-full">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1290,14 +1231,6 @@ export const AssignmentList: React.FC = () => {
               <option value="archived">Đã lưu trữ / Ẩn</option>
             </select>
           </div>
-        )}
-      </div>
-
-      {/* ===================================================================== */}
-      {/* MÀN HÌNH 1: QUẢN LÝ CHỦ ĐỀ (TOPICS)                                   */}
-      {/* ===================================================================== */}
-      {activeSubModule === 'topics' && (
-        <div className="space-y-5">
 
           {/* Bảng danh sách chủ đề */}
           {paginatedTopics.length === 0 ? (
@@ -1314,12 +1247,12 @@ export const AssignmentList: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-900/90 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      <th className="py-3.5 px-4">Tên chủ đề & Icon Quản lý câu hỏi</th>
+                      <th className="py-3.5 px-4">Tên chủ đề</th>
                       <th className="py-3.5 px-3">Môn học</th>
                       <th className="py-3.5 px-3">Lớp / Buổi học</th>
-                      <th className="py-3.5 px-3 text-center">Số câu Trắc nghiệm</th>
-                      <th className="py-3.5 px-3 text-center">Số câu Tự luận</th>
-                      <th className="py-3.5 px-3 text-center">Trạng thái câu hỏi</th>
+                      <th className="py-3.5 px-3 text-center">Trắc nghiệm</th>
+                      <th className="py-3.5 px-3 text-center">Tự luận</th>
+                      <th className="py-3.5 px-3 text-center">Trạng thái</th>
                       <th className="py-3.5 px-4 text-right">Thao tác</th>
                     </tr>
                   </thead>
@@ -1337,47 +1270,25 @@ export const AssignmentList: React.FC = () => {
                       return (
                         <tr key={topic.id} className="hover:bg-slate-900/50 transition-colors">
                           <td className="py-3.5 px-4 max-w-md">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-extrabold text-slate-100 text-sm">
-                                    {topic.name}
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-extrabold text-slate-100 text-sm">
+                                  {topic.name}
+                                </span>
+                                {topic.isCurrentLesson && (
+                                  <span className="px-2 py-0.5 rounded-md bg-cyan-950 text-cyan-300 border border-cyan-700/50 text-[10px] font-bold">
+                                    Bài học hiện tại
                                   </span>
-                                  {topic.isCurrentLesson && (
-                                    <span className="px-2 py-0.5 rounded-md bg-cyan-950 text-cyan-300 border border-cyan-700/50 text-[10px] font-bold">
-                                      Bài học hiện tại
-                                    </span>
-                                  )}
-                                  {topic.status === 'archived' && (
-                                    <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 text-[10px] font-bold">
-                                      Đã lưu trữ
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
-                                  {topic.content}
-                                </p>
+                                )}
+                                {topic.status === 'archived' && (
+                                  <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 text-[10px] font-bold">
+                                    Đã lưu trữ
+                                  </span>
+                                )}
                               </div>
-
-                              {/* Icon [Quản lý câu hỏi theo chủ đề] cạnh tên chủ đề (Chỉ hiện icon, giữ chuột 2s hiện tên) */}
-                              <div className="flex items-center gap-1 shrink-0">
-                                <DelayedTooltipIconButton
-                                  onClick={() => setManagingTopicQuestions(topic)}
-                                  label="Quản lý câu hỏi theo chủ đề"
-                                  icon={<FolderKanban className="w-4 h-4 text-cyan-400" />}
-                                  className="p-2 rounded-lg bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 cursor-pointer shadow-xs transition-all"
-                                />
-                                <DelayedTooltipIconButton
-                                  onClick={() =>
-                                    navigate(
-                                      `/teacher/quizzes?topic=${encodeURIComponent(topic.name)}&manageTopic=1`
-                                    )
-                                  }
-                                  label="Mở Ngân hàng câu hỏi đầy đủ"
-                                  icon={<Sparkles className="w-4 h-4 text-amber-400" />}
-                                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer transition-all"
-                                />
-                              </div>
+                              <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
+                                {topic.content}
+                              </p>
                             </div>
                           </td>
 

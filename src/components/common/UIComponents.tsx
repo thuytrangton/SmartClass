@@ -76,10 +76,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, 
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-800">
       <div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight">{title}</h1>
           {badge && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-800/60">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 whitespace-nowrap shrink-0">
               {badge}
             </span>
           )}
