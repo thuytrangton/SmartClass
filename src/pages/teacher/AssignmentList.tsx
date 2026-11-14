@@ -257,6 +257,10 @@ export const AssignmentList: React.FC = () => {
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
   const [editingTopic, setEditingTopic] = useState<AssignmentTopic | null>(null);
   const [viewingTopic, setViewingTopic] = useState<AssignmentTopic | null>(null);
+  const [wordLessonContent, setWordLessonContent] = useState('');
+  const [wordFontFamily, setWordFontFamily] = useState<'Times New Roman' | 'Arial' | 'Inter'>('Times New Roman');
+  const [wordFontSize, setWordFontSize] = useState<number>(14);
+  const [wordIncludeQuestions, setWordIncludeQuestions] = useState<boolean>(true);
   const [duplicatingTopic, setDuplicatingTopic] = useState<AssignmentTopic | null>(null);
   const [duplicateNewName, setDuplicateNewName] = useState('');
   const [duplicateIncludeQuestions, setDuplicateIncludeQuestions] = useState(true);
@@ -408,6 +412,86 @@ export const AssignmentList: React.FC = () => {
       showToast(`Đã tạo chủ đề mới "${topicFormName.trim()}".`, 'success');
     }
     setIsTopicModalOpen(false);
+  };
+
+  const handleOpenWordLessonPlan = (topic: AssignmentTopic) => {
+    setViewingTopic(topic);
+    setWordLessonContent(topic.content || '');
+  };
+
+  const handleSaveWordLessonPlan = () => {
+    if (!viewingTopic) return;
+    const trimmed = wordLessonContent.slice(0, 8000);
+    db.updateTopic(viewingTopic.id, { content: trimmed });
+    setViewingTopic({ ...viewingTopic, content: trimmed });
+    showToast(`Đã lưu nội dung Giáo án giảng dạy của chủ đề "${viewingTopic.name}"!`, 'success');
+  };
+
+  const handleExportWordDoc = () => {
+    if (!viewingTopic) return;
+    const stats = topicStatsMap[viewingTopic.id];
+    const questionsHtml =
+      wordIncludeQuestions && stats?.questions.length
+        ? `<h3 style="margin-top:18pt;font-size:13pt;text-transform:uppercase;">III. HỆ THỐNG CÂU HỎI & BÀI TẬP THEO CHỦ ĐỀ (${stats.questions.length} CÂU)</h3>` +
+          stats.questions
+            .map(
+              (q, idx) =>
+                `<p style="margin:6pt 0;"><strong>Câu ${idx + 1} (${QUESTION_TYPE_LABELS[q.type]} - ${q.difficulty}):</strong> ${q.content}</p>` +
+                (q.options?.length
+                  ? `<ul style="margin:4pt 0 8pt 18pt;">${q.options
+                      .map(
+                        (opt) =>
+                          `<li><strong>${opt.label}.</strong> ${opt.text} ${
+                            opt.isCorrect ? '<em>(Đáp án đúng)</em>' : ''
+                          }</li>`
+                      )
+                      .join('')}</ul>`
+                  : q.rubric
+                  ? `<p style="margin:2pt 0 8pt 12pt;font-style:italic;">Hướng dẫn chấm: ${q.rubric}</p>`
+                  : '')
+            )
+            .join('')
+        : '';
+
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="utf-8"><title>Giáo án - ${viewingTopic.name}</title></head>
+      <body style="font-family:'${wordFontFamily}',serif;font-size:${wordFontSize}pt;line-height:1.5;color:#111827;">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:16pt;">
+          <tr>
+            <td style="width:45%;text-align:center;vertical-align:top;">
+              <strong>TRƯỜNG THPT SMARTCLASS 4.0</strong><br/>
+              <span>TỔ CHUYÊN MÔN: ${viewingTopic.subject.toUpperCase()}</span>
+            </td>
+            <td style="width:55%;text-align:center;vertical-align:top;">
+              <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br/>
+              <strong>Độc lập - Tự do - Hạnh phúc</strong>
+            </td>
+          </tr>
+        </table>
+        <div style="text-align:center;margin-bottom:16pt;">
+          <h2 style="margin:0;font-size:15pt;text-transform:uppercase;">KẾ HOẠCH BÀI DẠY (GIÁO ÁN GIẢNG DẠY)</h2>
+          <h3 style="margin:6pt 0;font-size:13pt;">CHỦ ĐỀ: ${viewingTopic.name.toUpperCase()}</h3>
+          <p style="margin:0;font-style:italic;">Môn học: ${viewingTopic.subject} | Lớp: ${viewingTopic.className} (Khối ${viewingTopic.gradeLevel}) | Phân phối: ${viewingTopic.sessionLabel || viewingTopic.chapter || '2 tiết'}</p>
+        </div>
+        <h3 style="font-size:13pt;text-transform:uppercase;">I. MỤC TIÊU BÀI HỌC & YÊU CẦU CẦN ĐẠT</h3>
+        <p>- Nắm vững kiến thức trọng tâm thuộc chủ đề <strong>${viewingTopic.name}</strong> (${viewingTopic.chapter || viewingTopic.subject}).<br/>
+        - Vận dụng giải quyết bài tập trắc nghiệm (${viewingTopic.targetObjectiveCount || 3} câu) và tự luận (${viewingTopic.targetEssayCount || 1} câu).</p>
+        <h3 style="font-size:13pt;text-transform:uppercase;">II. NỘI DUNG BÀI GIẢNG & TIẾN TRÌNH DẠY HỌC</h3>
+        <div style="white-space:pre-line;">${wordLessonContent}</div>
+        ${questionsHtml}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Giao_An_${viewingTopic.name.replace(/\s+/g, '_')}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Đã xuất file Giáo án Word (.doc) thành công!', 'success');
   };
 
   const handleOpenDuplicateTopic = (topic: AssignmentTopic) => {
@@ -1354,23 +1438,15 @@ export const AssignmentList: React.FC = () => {
                                 className="p-2 rounded-lg bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 cursor-pointer transition-all"
                               />
 
-                              {/* 2. View chủ đề */}
+                              {/* 2. Mở giáo án giảng dạy như trang Word */}
                               <DelayedTooltipIconButton
-                                onClick={() => setViewingTopic(topic)}
-                                label="View chủ đề"
+                                onClick={() => handleOpenWordLessonPlan(topic)}
+                                label="Mở giáo án giảng dạy như trang Word"
                                 icon={<Eye className="w-4 h-4 text-cyan-400" />}
                                 className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer transition-all"
                               />
 
-                              {/* 3. Chỉnh sửa */}
-                              <DelayedTooltipIconButton
-                                onClick={() => handleOpenEditTopic(topic)}
-                                label="Chỉnh sửa"
-                                icon={<Edit3 className="w-4 h-4 text-amber-300" />}
-                                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 cursor-pointer transition-all"
-                              />
-
-                              {/* 4. Nhân bản */}
+                              {/* 3. Nhân bản */}
                               <DelayedTooltipIconButton
                                 onClick={() => handleOpenDuplicateTopic(topic)}
                                 label="Nhân bản"
@@ -1378,13 +1454,21 @@ export const AssignmentList: React.FC = () => {
                                 className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 cursor-pointer transition-all"
                               />
 
-                              {/* 5. Xóa */}
+                              {/* 4. Edit */}
+                              <DelayedTooltipIconButton
+                                onClick={() => handleOpenEditTopic(topic)}
+                                label="Edit"
+                                icon={<Edit3 className="w-4 h-4 text-amber-300" />}
+                                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 cursor-pointer transition-all"
+                              />
+
+                              {/* 5. Delete */}
                               <DelayedTooltipIconButton
                                 onClick={() => {
                                   setForceHardDeleteTopic(false);
                                   setDeletingTopic(topic);
                                 }}
-                                label="Xóa"
+                                label="Delete"
                                 icon={<Trash2 className="w-4 h-4 text-rose-400" />}
                                 className="p-2 rounded-lg bg-slate-800 hover:bg-rose-950 text-rose-400 border border-slate-700 cursor-pointer transition-all"
                               />
@@ -2882,15 +2966,19 @@ export const AssignmentList: React.FC = () => {
       </Modal>
 
       {/* ===================================================================== */}
-      {/* MODAL 3: VIEW CHỦ ĐỀ (XEM CHI TIẾT CHỦ ĐỀ & CÂU HỎI THUỘC CHỦ ĐỀ)    */}
+      {/* MODAL 3: MỞ GIÁO ÁN GIẢNG DẠY NHƯ TRANG WORD (A4 DOCUMENT EDITOR)    */}
       {/* ===================================================================== */}
       <Modal
         isOpen={!!viewingTopic}
         onClose={() => setViewingTopic(null)}
-        title={viewingTopic ? `View chủ đề: ${viewingTopic.name}` : ''}
+        title={
+          viewingTopic
+            ? `Giáo án giảng dạy (Trang Word A4): ${viewingTopic.name}`
+            : 'Giáo án giảng dạy'
+        }
         subtitle={
           viewingTopic
-            ? `Môn ${viewingTopic.subject} • Lớp ${viewingTopic.className} (Khối ${viewingTopic.gradeLevel}) • ${viewingTopic.chapter || ''}`
+            ? `Tệp: Giao_An_${viewingTopic.name.replace(/\s+/g, '_')}.docx • Môn ${viewingTopic.subject} • Lớp ${viewingTopic.className}`
             : ''
         }
         maxWidth="2xl"
@@ -2904,129 +2992,274 @@ export const AssignmentList: React.FC = () => {
             questions: []
           };
           return (
-            <div className="space-y-4 text-xs">
-              {/* Thẻ tổng quan chủ đề */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Tổng câu hỏi</span>
-                  <span className="text-lg font-extrabold text-white">{stats.totalCount} câu</span>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                  <span className="text-[10px] text-cyan-400 uppercase font-bold block">Câu Trắc nghiệm</span>
-                  <span className="text-lg font-extrabold text-cyan-300">
-                    {stats.objectiveCount} / {viewingTopic.targetObjectiveCount || 3}
+            <div className="space-y-3 text-xs">
+              {/* Thanh công cụ Ribbon kiểu Microsoft Word */}
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/40 font-extrabold flex items-center gap-1.5 text-[11px]">
+                    <FileText className="w-3.5 h-3.5 text-blue-400" /> Word A4
                   </span>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                  <span className="text-[10px] text-amber-400 uppercase font-bold block">Câu Tự luận</span>
-                  <span className="text-lg font-extrabold text-amber-300">
-                    {stats.essayCount} / {viewingTopic.targetEssayCount || 1}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Trạng thái</span>
-                  <span
-                    className={`text-sm font-extrabold ${
-                      stats.isSufficient ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
+
+                  <select
+                    value={wordFontFamily}
+                    onChange={(e) => setWordFontFamily(e.target.value as any)}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-semibold text-slate-200 outline-none"
                   >
-                    {stats.isSufficient ? '✓ Đủ câu hỏi' : '⚠ Thiếu câu hỏi'}
-                  </span>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Inter">Inter</option>
+                  </select>
+
+                  <select
+                    value={wordFontSize}
+                    onChange={(e) => setWordFontSize(Number(e.target.value))}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-semibold text-slate-200 outline-none"
+                  >
+                    <option value={12}>Cỡ chữ 12pt</option>
+                    <option value={13}>Cỡ chữ 13pt</option>
+                    <option value={14}>Cỡ chữ 14pt</option>
+                    <option value={16}>Cỡ chữ 16pt</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setWordLessonContent((prev) =>
+                        `${prev}\n\nHOẠT ĐỘNG KHỞI ĐỘNG:\n- Mục tiêu: Tạo tâm thế hứng thú cho học sinh trước khi vào bài.\n- Nội dung: Giáo viên nêu tình huống thực tế gắn với chủ đề ${viewingTopic.name}.\n- Sản phẩm: Học sinh trả lời câu hỏi dẫn dắt.`
+                      )
+                    }
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 font-bold text-[11px] cursor-pointer"
+                  >
+                    + Chèn mẫu Hoạt động dạy học
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveWordLessonPlan}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Save className="w-3.5 h-3.5" /> Lưu giáo án
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportWordDoc}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Tải file Word (.doc)
+                  </button>
                 </div>
               </div>
 
-              {/* Nội dung chi tiết chủ đề */}
-              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-slate-400">
-                  <span>
-                    Buổi học / Tiết học: <strong className="text-slate-100">{viewingTopic.sessionLabel}</strong>
-                  </span>
-                  <span>
-                    Độ dài nội dung: <strong className="text-cyan-400">{viewingTopic.content.length} / 8.000 ký tự</strong>
-                  </span>
-                </div>
-                <div className="pt-2 border-t border-slate-800">
-                  <p className="text-[11px] font-bold uppercase text-cyan-400 mb-1">
-                    Nội dung chi tiết / Chuẩn kiến thức chủ đề:
-                  </p>
-                  <p className="text-slate-200 whitespace-pre-line leading-relaxed">{viewingTopic.content}</p>
-                </div>
-              </div>
-
-              {/* Danh sách câu hỏi thuộc chủ đề */}
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                <p className="font-bold text-slate-300">
-                  Danh sách câu hỏi thuộc chủ đề ({stats.questions.length} câu):
-                </p>
-                {stats.questions.length === 0 ? (
-                  <p className="text-slate-500 italic py-3 text-center bg-slate-900/50 rounded-xl border border-slate-800">
-                    Chưa có câu hỏi nào gắn với chủ đề này. Nhấn "Quản lý câu hỏi theo chủ đề" bên dưới để thêm câu hỏi.
-                  </p>
-                ) : (
-                  stats.questions.map((q, idx) => (
-                    <div
-                      key={q.id}
-                      className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start justify-between gap-2"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-cyan-400">Câu {idx + 1}</span>
-                          <span className="font-mono text-[10px] text-slate-400">{q.code}</span>
-                          <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] font-bold">
-                            {QUESTION_TYPE_LABELS[q.type]}
-                          </span>
-                          <span className="text-[10px] text-amber-300">{q.difficulty}</span>
-                        </div>
-                        <p className="text-slate-200 mt-1">{q.content}</p>
-                      </div>
+              {/* Không gian bàn làm việc chứa tờ giấy trắng A4 chuẩn Microsoft Word */}
+              <div className="bg-slate-800/90 p-3 sm:p-6 rounded-xl border border-slate-700 max-h-[65vh] overflow-y-auto flex justify-center">
+                <div
+                  style={{
+                    fontFamily:
+                      wordFontFamily === 'Times New Roman'
+                        ? '"Times New Roman", Times, serif'
+                        : wordFontFamily === 'Arial'
+                        ? 'Arial, Helvetica, sans-serif'
+                        : 'Inter, sans-serif',
+                    fontSize: `${wordFontSize}px`
+                  }}
+                  className="bg-white text-slate-900 w-full max-w-[760px] min-h-[840px] p-6 sm:p-10 shadow-2xl border border-slate-300 rounded-xs space-y-5"
+                >
+                  {/* Quốc hiệu & Tiêu đề trường kiểu văn bản Word chuẩn */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-3 border-b border-slate-300 text-center">
+                    <div>
+                      <p className="font-bold uppercase text-xs sm:text-sm text-slate-900">
+                        TRƯỜNG THPT SMARTCLASS 4.0
+                      </p>
+                      <p className="font-semibold text-xs text-slate-700">
+                        TỔ CHUYÊN MÔN: {viewingTopic.subject.toUpperCase()}
+                      </p>
+                      <div className="w-20 h-[1px] bg-slate-400 mx-auto mt-1" />
                     </div>
-                  ))
-                )}
+                    <div>
+                      <p className="font-bold uppercase text-xs sm:text-sm text-slate-900">
+                        CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+                      </p>
+                      <p className="font-bold text-xs text-slate-800">
+                        Độc lập - Tự do - Hạnh phúc
+                      </p>
+                      <div className="w-28 h-[1px] bg-slate-800 mx-auto mt-1" />
+                    </div>
+                  </div>
+
+                  {/* Tên kế hoạch bài dạy / giáo án */}
+                  <div className="text-center space-y-1 py-1">
+                    <h2 className="text-base sm:text-lg font-extrabold uppercase tracking-wide text-slate-900">
+                      KẾ HOẠCH BÀI DẠY (GIÁO ÁN GIẢNG DẠY)
+                    </h2>
+                    <h3 className="text-sm sm:text-base font-bold uppercase text-blue-900">
+                      CHỦ ĐỀ / BÀI HỌC: {viewingTopic.name}
+                    </h3>
+                    <p className="text-xs italic text-slate-700">
+                      Môn học: <strong>{viewingTopic.subject}</strong> &nbsp;|&nbsp; Lớp:{' '}
+                      <strong>{viewingTopic.className}</strong> (Khối {viewingTopic.gradeLevel}) &nbsp;|&nbsp; Phân phối:{' '}
+                      <strong>{viewingTopic.sessionLabel || viewingTopic.chapter || 'Buổi học hiện tại'}</strong>
+                    </p>
+                  </div>
+
+                  {/* Mục I: Mục tiêu & Chuẩn kiến thức */}
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold uppercase text-xs sm:text-sm text-slate-900">
+                      I. MỤC TIÊU BÀI HỌC & HỌC LIỆU CHUẨN BỊ
+                    </h4>
+                    <div className="text-xs sm:text-sm text-slate-800 space-y-1 pl-2">
+                      <p>
+                        • <strong> Chương / Phần học:</strong> {viewingTopic.chapter || 'Chương trình chuẩn'}
+                      </p>
+                      <p>
+                        • <strong>Cấu trúc câu hỏi gắn với chủ đề:</strong> {stats.objectiveCount}/
+                        {viewingTopic.targetObjectiveCount || 3} câu Trắc nghiệm &amp; {stats.essayCount}/
+                        {viewingTopic.targetEssayCount || 1} câu Tự luận ({stats.isSufficient ? 'Đủ câu hỏi' : 'Cần bổ sung câu hỏi'}).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mục II: Nội dung bài giảng soạn thảo trực tiếp như trang Word */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold uppercase text-xs sm:text-sm text-slate-900">
+                        II. NỘI DUNG BÀI GIẢNG &amp; TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG DẠY HỌC
+                      </h4>
+                      <span className="text-[11px] font-sans text-slate-500">
+                        {wordLessonContent.length.toLocaleString('vi-VN')} / 8.000 ký tự
+                      </span>
+                    </div>
+                    <textarea
+                      rows={11}
+                      maxLength={8000}
+                      value={wordLessonContent}
+                      onChange={(e) => setWordLessonContent(e.target.value.slice(0, 8000))}
+                      placeholder="Nhập trực tiếp nội dung giáo án giảng dạy, lý thuyết trọng tâm, các hoạt động của GV và HS trên trang Word này..."
+                      className="w-full p-3 rounded-sm bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-300 focus:border-blue-600 text-slate-900 outline-none leading-relaxed resize-y"
+                      style={{
+                        fontFamily: 'inherit',
+                        fontSize: 'inherit'
+                      }}
+                    />
+                  </div>
+
+                  {/* Mục III: Hệ thống câu hỏi thuộc chủ đề trên trang Word */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold uppercase text-xs sm:text-sm text-slate-900">
+                        III. HỆ THỐNG CÂU HỎI &amp; BÀI TẬP LUYỆN TẬP ({stats.questions.length} CÂU)
+                      </h4>
+                      <label className="flex items-center gap-1.5 text-[11px] font-sans text-slate-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={wordIncludeQuestions}
+                          onChange={(e) => setWordIncludeQuestions(e.target.checked)}
+                        />
+                        <span>Hiển thị câu hỏi trên trang giáo án</span>
+                      </label>
+                    </div>
+
+                    {wordIncludeQuestions && (
+                      <div className="space-y-3 pl-1">
+                        {stats.questions.length === 0 ? (
+                          <p className="text-xs italic text-slate-500">
+                            Chưa có câu hỏi nào gắn với chủ đề này trong Ngân hàng câu hỏi.
+                          </p>
+                        ) : (
+                          stats.questions.map((q, idx) => (
+                            <div key={q.id} className="space-y-1 text-slate-900">
+                              <p className="font-semibold">
+                                Câu {idx + 1} ({QUESTION_TYPE_LABELS[q.type]} – Mức độ: {q.difficulty}):{' '}
+                                <span className="font-normal">{q.content}</span>
+                              </p>
+                              {q.options && q.options.length > 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pl-4 text-xs sm:text-sm">
+                                  {q.options.map((opt) => (
+                                    <p
+                                      key={opt.id}
+                                      className={opt.isCorrect ? 'font-bold underline text-blue-900' : ''}
+                                    >
+                                      {opt.label}. {opt.text} {opt.isCorrect ? '(Đáp án đúng)' : ''}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                              {q.rubric && (
+                                <p className="pl-4 text-xs italic text-slate-700">
+                                  → Hướng dẫn chấm / Đáp án: {q.rubric}
+                                </p>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Chữ ký cuối trang giáo án A4 */}
+                  <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-300 text-center text-xs text-slate-800">
+                    <div>
+                      <p className="font-bold uppercase">DUYỆT CỦA TỔ CHUYÊN MÔN</p>
+                      <p className="italic text-slate-500 mt-8">(Ký và ghi rõ họ tên)</p>
+                    </div>
+                    <div>
+                      <p className="italic">Ngày ..... tháng ..... năm 2026</p>
+                      <p className="font-bold uppercase mt-0.5">GIÁO VIÊN SOẠN GIẢNG</p>
+                      <p className="font-bold mt-8">{viewingTopic.teacherName || user?.name || 'Thầy Nguyễn Văn An'}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Thanh các chức năng của Chủ đề ngay trong Modal View chủ đề (Chỉ hiện icon, giữ chuột 2s hiện tên) */}
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
-                <DelayedTooltipIconButton
-                  onClick={() => {
-                    const t = viewingTopic;
-                    setViewingTopic(null);
-                    setManagingTopicQuestions(t);
-                  }}
-                  label="Quản lý câu hỏi theo chủ đề"
-                  icon={<FolderKanban className="w-4 h-4 text-cyan-300" />}
-                  className="p-2.5 rounded-xl bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 cursor-pointer transition-all"
-                />
-                <DelayedTooltipIconButton
-                  onClick={() => {
-                    const t = viewingTopic;
-                    setViewingTopic(null);
-                    handleOpenDuplicateTopic(t);
-                  }}
-                  label="Nhân bản"
-                  icon={<Copy className="w-4 h-4 text-emerald-300" />}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 cursor-pointer transition-all"
-                />
-                <DelayedTooltipIconButton
-                  onClick={() => {
-                    const t = viewingTopic;
-                    setViewingTopic(null);
-                    handleOpenEditTopic(t);
-                  }}
-                  label="Chỉnh sửa"
-                  icon={<Edit3 className="w-4 h-4 text-amber-300" />}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 cursor-pointer transition-all"
-                />
-                <DelayedTooltipIconButton
-                  onClick={() => {
-                    const t = viewingTopic;
-                    setViewingTopic(null);
-                    setForceHardDeleteTopic(false);
-                    setDeletingTopic(t);
-                  }}
-                  label="Xóa"
-                  icon={<Trash2 className="w-4 h-4 text-rose-400" />}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-400 border border-slate-700 cursor-pointer transition-all"
-                />
+              {/* Thanh 4 chức năng khác của Chủ đề ở chân Modal (Chỉ hiện icon, giữ chuột 2s hiện tên) */}
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">
+                  Mẹo: Bạn có thể gõ chỉnh sửa trực tiếp trên trang giấy trắng A4 và nhấn <strong>Lưu giáo án</strong>.
+                </span>
+                <div className="flex items-center gap-2">
+                  <DelayedTooltipIconButton
+                    onClick={() => {
+                      const t = viewingTopic;
+                      setViewingTopic(null);
+                      setManagingTopicQuestions(t);
+                    }}
+                    label="Quản lý câu hỏi theo chủ đề"
+                    icon={<FolderKanban className="w-4 h-4 text-cyan-300" />}
+                    className="p-2.5 rounded-xl bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 cursor-pointer transition-all"
+                  />
+                  <DelayedTooltipIconButton
+                    onClick={() => {
+                      const t = viewingTopic;
+                      setViewingTopic(null);
+                      handleOpenDuplicateTopic(t);
+                    }}
+                    label="Nhân bản"
+                    icon={<Copy className="w-4 h-4 text-emerald-300" />}
+                    className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 cursor-pointer transition-all"
+                  />
+                  <DelayedTooltipIconButton
+                    onClick={() => {
+                      const t = viewingTopic;
+                      setViewingTopic(null);
+                      handleOpenEditTopic(t);
+                    }}
+                    label="Edit"
+                    icon={<Edit3 className="w-4 h-4 text-amber-300" />}
+                    className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 cursor-pointer transition-all"
+                  />
+                  <DelayedTooltipIconButton
+                    onClick={() => {
+                      const t = viewingTopic;
+                      setViewingTopic(null);
+                      setForceHardDeleteTopic(false);
+                      setDeletingTopic(t);
+                    }}
+                    label="Delete"
+                    icon={<Trash2 className="w-4 h-4 text-rose-400" />}
+                    className="p-2.5 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-400 border border-slate-700 cursor-pointer transition-all"
+                  />
+                </div>
               </div>
             </div>
           );
