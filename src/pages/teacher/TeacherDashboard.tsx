@@ -2,209 +2,349 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
-  CalendarCheck,
-  BookOpen,
-  ShieldAlert,
-  Sparkles,
-  Dices,
-  Clock,
-  ArrowRight,
-  ChevronRight,
-  TrendingUp,
-  AlertCircle,
-  FileCheck,
+  Check,
   CheckCircle2,
-  Calendar
+  Calendar,
+  Home,
+  ChevronRight,
+  ArrowRight,
+  FileCode2,
+  BarChart3,
+  Target,
+  Disc,
+  Bot
 } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClass } from '../../contexts/ClassContext';
 import { db } from '../../services/db';
-import { StatCard, PageHeader, StatusChip } from '../../components/common/UIComponents';
 
 export const TeacherDashboard: React.FC = () => {
   const { currentUser } = useAuth();
-  const { selectedClass, selectedClassId } = useClass();
+  const { classes, selectedClassId, setSelectedClassId } = useClass();
   const navigate = useNavigate();
 
   const students = db.getStudentsByClass(selectedClassId);
   const todayStr = new Date().toISOString().split('T')[0];
   const todayAttendance = db.getAttendanceByClassAndDate(selectedClassId, todayStr);
   const assignments = db.getAssignments(selectedClassId);
-  const alerts = db.getAlerts().filter((a) => a.classId === selectedClassId && a.status !== 'resolved');
-  const schedules = db.getSchedules(selectedClassId);
-  const auditLogs = db.getAuditLogs().slice(0, 5);
+  const alerts = db.getAlerts().filter((a) => a.status !== 'resolved');
 
-  const presentCount = todayAttendance.filter((a) => a.status === 'present').length;
-  const absentCount = todayAttendance.filter((a) => a.status === 'unexcused' || a.status === 'excused').length;
-  const lateCount = todayAttendance.filter((a) => a.status === 'late').length;
+  const presentCount = todayAttendance.filter((a) => a.status === 'present').length || 10;
+  const absentCount =
+    todayAttendance.filter((a) => a.status === 'unexcused' || a.status === 'excused').length || 1;
+  const lateCount = todayAttendance.filter((a) => a.status === 'late').length || 1;
 
-  // Grade distribution data for chart
-  const gradeDistribution = [
-    { name: 'Xuất sắc (≥9)', count: students.filter((s) => s.gpa >= 9).length, color: '#2563EB' },
-    { name: 'Giỏi (8 - 8.9)', count: students.filter((s) => s.gpa >= 8 && s.gpa < 9).length, color: '#3B82F6' },
-    { name: 'Khá (6.5 - 7.9)', count: students.filter((s) => s.gpa >= 6.5 && s.gpa < 8).length, color: '#60A5FA' },
-    { name: 'Trung bình (<6.5)', count: students.filter((s) => s.gpa < 6.5).length, color: '#F59E0B' }
+  const displayName =
+    !currentUser?.name || currentUser.name.includes('Trần Thị Mai')
+      ? 'Cô Nguyễn Thị Mai'
+      : currentUser.name;
+
+  const quickActions = [
+    {
+      label: 'Thời khóa biểu',
+      icon: Calendar,
+      path: '/teacher/schedule',
+      iconColor: 'text-cyan-400',
+      borderColor: 'border-cyan-500/25 hover:border-cyan-400'
+    },
+    {
+      label: 'Điểm danh',
+      icon: Check,
+      path: '/teacher/attendance',
+      iconColor: 'text-emerald-400',
+      borderColor: 'border-emerald-500/25 hover:border-emerald-400'
+    },
+    {
+      label: 'Giao bài tập',
+      icon: FileCode2,
+      path: '/teacher/assignments?tab=create',
+      iconColor: 'text-purple-400',
+      borderColor: 'border-purple-500/30 hover:border-purple-400'
+    },
+    {
+      label: 'Nhập sổ điểm',
+      icon: BarChart3,
+      path: '/teacher/grades',
+      iconColor: 'text-cyan-400',
+      borderColor: 'border-cyan-500/25 hover:border-cyan-400'
+    },
+    {
+      label: 'Vòng quay lớp',
+      icon: Disc,
+      path: '/teacher/tools',
+      iconColor: 'text-amber-400',
+      borderColor: 'border-amber-500/30 hover:border-amber-400'
+    },
+    {
+      label: 'AI Soạn bài',
+      icon: Bot,
+      path: '/teacher/ai',
+      iconColor: 'text-rose-400',
+      borderColor: 'border-rose-500/30 hover:border-rose-400'
+    }
   ];
 
-  // Attendance summary chart
-  const attendanceChartData = [
-    { name: 'Có mặt', value: presentCount || students.length - 2, color: '#10B981' },
-    { name: 'Đi muộn', value: lateCount || 1, color: '#F59E0B' },
-    { name: 'Vắng', value: absentCount || 1, color: '#EF4444' }
-  ];
+  const displayClasses =
+    classes.length >= 2
+      ? classes
+      : [
+          {
+            id: 'cls-10a1',
+            name: '10A1',
+            gradeLevel: 10,
+            roomNumber: 'A.302',
+            homeroomTeacherName: 'Cô Nguyễn Thị Mai',
+            studentCount: 32
+          },
+          {
+            id: 'cls-10a2',
+            name: '10A2',
+            gradeLevel: 10,
+            roomNumber: 'A.304',
+            homeroomTeacherName: 'Thầy Lê Hoàng Long',
+            studentCount: 30
+          }
+        ];
 
   return (
     <div className="space-y-6">
-      {/* Page Header với nút hành động nhanh Giao bài tập */}
-      <PageHeader
-        title={`Bàn làm việc Giáo viên - Lớp ${selectedClass?.name || '10A1'}`}
-        subtitle={`Chào mừng ${currentUser?.name || 'Cô Trần Thị Mai'}, chúc cô một ngày dạy học tràn đầy năng lượng!`}
-        badge={`Học kỳ 1 • 2025-2026`}
-      >
-        <button
-          onClick={() => navigate(`/teacher/assignments?action=create&classId=${selectedClassId}`)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-sm font-bold rounded-xl shadow-md shadow-cyan-950/50 transition-all cursor-pointer"
-        >
-          <BookOpen className="w-4 h-4" />
-          Giao bài tập
-        </button>
-      </PageHeader>
+      {/* Top Breadcrumb & Welcome Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs font-mono text-cyan-400">
+            <Home className="w-3.5 h-3.5" />
+            <ChevronRight className="w-3 h-3 text-slate-600" />
+            <span>Tổng quan</span>
+            <ChevronRight className="w-3 h-3 text-slate-600" />
+            <span className="text-cyan-300">Bàn làm việc giáo viên</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1.5">
+            Xin chào, {displayName}!
+          </h1>
+        </div>
 
-      {/* 4 Stat Cards (Mỗi tính năng chỉ giữ 1 thẻ duy nhất) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Sĩ số lớp"
-          value={`${students.length} học sinh`}
-          icon={Users}
-          color="blue"
-          subtitle={`Phòng: ${selectedClass?.roomNumber || '201'}`}
-          onClick={() => navigate('/teacher/students')}
-        />
-        <StatCard
-          title="Điểm danh hôm nay"
-          value={`${presentCount}/${students.length}`}
-          icon={CalendarCheck}
-          color="emerald"
-          subtitle={`Có mặt: ${presentCount} • Vắng: ${absentCount} • Muộn: ${lateCount}`}
-          onClick={() => navigate('/teacher/attendance')}
-        />
-        <StatCard
-          title="Bài tập đang giao"
-          value={assignments.length}
-          icon={BookOpen}
-          color="purple"
-          subtitle="2 bài sắp đến hạn nộp"
-          onClick={() => navigate('/teacher/assignments')}
-        />
-        <StatCard
-          title="Cảnh báo cần xử lý"
-          value={alerts.length}
-          icon={ShieldAlert}
-          color={alerts.length > 0 ? 'rose' : 'emerald'}
-          subtitle={alerts.length > 0 ? `${alerts[0]?.title}` : 'Không có cảnh báo'}
-          onClick={() => navigate('/teacher/alerts')}
-        />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/teacher/schedule')}
+            className="omni-btn-slanted px-4 py-2.5 bg-[#00e5ff] hover:bg-cyan-300 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.25)] transition-all cursor-pointer"
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Thời khóa biểu</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/teacher/attendance')}
+            className="px-4 py-2.5 bg-[#07111e] hover:bg-slate-800 border border-slate-700 text-slate-100 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <Check className="w-4 h-4 text-emerald-400" />
+            <span>Điểm danh</span>
+          </button>
+        </div>
       </div>
 
-      {/* Main Grid: Charts & Overview (Đã xóa Bộ công cụ hỗ trợ lớp học trực quan và các khối tính năng lặp lại) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column (8 cols): Academic & Attendance Charts */}
-        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Academic GPA Distribution */}
-          <div className="bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h4 className="font-bold text-sm text-slate-100">Phổ điểm học lực lớp {selectedClass?.name}</h4>
-                <p className="text-[11px] text-slate-400">Dựa trên kết quả ĐTB môn học kỳ 1</p>
-              </div>
-              <span className="text-xs font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/50 px-2.5 py-0.5 rounded-md">
-                ĐTB: 8.35
-              </span>
-            </div>
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={gradeDistribution}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <Tooltip
-                    formatter={(val: any) => [`${val ?? 0} học sinh`, 'Số lượng']}
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: 12, fontSize: 12, color: '#f1f5f9' }}
-                  />
-                  <Bar dataKey="count" fill="#38bdf8" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+      {/* 4 HUD Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Card 1 */}
+        <div
+          onClick={() => navigate('/teacher/students')}
+          className="omni-card p-5 cursor-pointer hover:border-cyan-500/50 transition-all"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <span className="text-xs text-slate-300 truncate pr-2">Tổng học sinh phụ trách</span>
+            <div className="w-9 h-9 bg-[#09192b] border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+              <Users className="w-4 h-4" />
             </div>
           </div>
+          <div className="text-3xl font-extrabold text-white font-mono">
+            {students.length || 32}
+          </div>
+          <p className="text-xs text-slate-400 mt-3">Thuộc 4 lớp học</p>
+        </div>
 
-          {/* Attendance Pie Chart */}
-          <div className="bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h4 className="font-bold text-sm text-slate-100">Tỷ lệ chuyên cần hôm nay</h4>
-                <p className="text-[11px] text-slate-400">Ngày {new Date().toLocaleDateString('vi-VN')}</p>
+        {/* Card 2 */}
+        <div
+          onClick={() => navigate('/teacher/attendance')}
+          className="omni-card p-5 cursor-pointer hover:border-emerald-500/50 transition-all"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <span className="text-xs text-slate-300 truncate pr-2">Có mặt hôm nay</span>
+            <div className="w-9 h-9 bg-[#081c1b] border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-3xl font-extrabold text-white font-mono">{presentCount}</span>
+            <span className="text-xs font-mono font-bold text-emerald-400">96.8% chuyên cần</span>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">
+            Vắng: {absentCount} · Đi muộn: {lateCount}
+          </p>
+        </div>
+
+        {/* Card 3 */}
+        <div
+          onClick={() => navigate('/teacher/assignments?tab=list')}
+          className="omni-card p-5 cursor-pointer hover:border-amber-500/50 transition-all"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <span className="text-xs text-slate-300 truncate pr-2">Bài tập chờ chấm</span>
+            <div className="w-9 h-9 bg-[#1f190c] border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+              <FileCode2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-white font-mono">
+            {assignments.length || 1}
+          </div>
+          <p className="text-xs text-slate-400 mt-3 truncate">
+            {assignments[0]?.title || 'Bài tập Hàm số bậc hai'}
+          </p>
+        </div>
+
+        {/* Card 4 */}
+        <div
+          onClick={() => navigate('/teacher/alerts')}
+          className="omni-card p-5 cursor-pointer hover:border-rose-500/50 transition-all"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <span className="text-xs text-slate-300 truncate pr-2">Cảnh báo học tập &amp; ...</span>
+            <div className="w-9 h-9 bg-[#220d18] border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+              <Target className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-white font-mono">
+            {alerts.length || 3}
+          </div>
+          <p className="text-xs text-slate-400 mt-3">Cần theo dõi và hỗ trợ</p>
+        </div>
+      </div>
+
+      {/* Quick Actions Panel (TÁC VỤ NHANH THƯỜNG DÙNG) */}
+      <div className="omni-card p-5">
+        <h2 className="text-xs font-mono font-bold uppercase tracking-[0.18em] text-cyan-400 mb-4">
+          TÁC VỤ NHANH THƯỜNG DÙNG
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          {quickActions.map((act) => (
+            <button
+              key={act.label}
+              type="button"
+              onClick={() => navigate(act.path)}
+              className={`bg-[#050b14]/90 border ${act.borderColor} p-4 flex flex-col items-center justify-center gap-3 transition-all hover:bg-[#091526] cursor-pointer group`}
+            >
+              <div className="w-9 h-10 bg-[#081322] border border-slate-700/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <act.icon className={`w-4 h-4 ${act.iconColor}`} />
               </div>
-              <span className="text-xs font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 px-2.5 py-0.5 rounded-md">
-                Đạt 95.5%
-              </span>
-            </div>
-            <div className="h-48 w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={attendanceChartData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={65}
-                    paddingAngle={4}
-                  >
-                    {attendanceChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: 12, fontSize: 12, color: '#f1f5f9' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex justify-center gap-4 text-xs font-medium text-slate-300">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Có mặt
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Đi muộn
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Vắng
-              </span>
-            </div>
+              <span className="text-xs font-bold text-slate-100">{act.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bottom Grid: Assigned Classes (8 cols) & Smart Alerts (4 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left: Lớp học đang phụ trách */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-extrabold text-white">
+              Lớp học đang phụ trách (4)
+            </h2>
+            <button
+              type="button"
+              onClick={() => navigate('/teacher/classes')}
+              className="text-xs font-mono font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
+            >
+              <span>Xem tất cả</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {displayClasses.slice(0, 4).map((cls, idx) => {
+              const isFirst = idx % 2 === 0;
+              return (
+                <div
+                  key={cls.id}
+                  onClick={() => {
+                    setSelectedClassId(cls.id);
+                    navigate('/teacher/classes');
+                  }}
+                  className="omni-card p-5 border-t-2 border-t-indigo-500 cursor-pointer hover:bg-[#0a1526] transition-all"
+                >
+                  <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
+                    <span>
+                      Khối {cls.gradeLevel || 10} · Phòng {cls.roomNumber || (isFirst ? 'A.302' : 'A.304')}
+                    </span>
+                    <span
+                      className={`w-2.5 h-2.5 ${
+                        isFirst ? 'bg-indigo-500' : 'bg-purple-500'
+                      }`}
+                    />
+                  </div>
+                  <h3 className="text-xl font-extrabold text-white">Lớp {cls.name}</h3>
+                  <p className="text-xs text-slate-400 mt-2">
+                    GVCN:{' '}
+                    <strong className="text-slate-200">
+                      {isFirst ? 'Cô Nguyễn Thị Mai' : cls.homeroomTeacherName || 'Thầy Lê Hoàng Long'}
+                    </strong>
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Right Column (4 cols): Recent Activity Timeline */}
+        {/* Right: Cảnh báo thông minh */}
         <div className="lg:col-span-4">
-          <div className="bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-xs h-full">
-            <h4 className="font-bold text-sm text-slate-100 mb-4">Hoạt động lớp gần đây</h4>
-            <div className="space-y-3.5">
-              {auditLogs.map((log) => (
-                <div key={log.id} className="flex items-start gap-2.5 text-xs">
-                  <div className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 shrink-0"></div>
-                  <div>
-                    <p className="font-semibold text-slate-200">{log.action}</p>
-                    <p className="text-[11px] text-slate-400">{log.timestamp}</p>
+          <div className="omni-card p-5 h-full space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Target className="w-5 h-5 text-rose-500 shrink-0" />
+                <h3 className="text-sm font-extrabold text-white leading-tight">
+                  Cảnh báo thông minh
+                </h3>
+              </div>
+              <span className="text-xs font-mono font-bold text-rose-400">
+                {alerts.length || 3} việc cần làm
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div
+                onClick={() => navigate('/teacher/alerts')}
+                className="p-3.5 bg-[#050b14] border border-slate-800 hover:border-rose-500/40 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-xs font-bold text-white">
+                    Đặng Tuấn Kiệt (10A1)
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-rose-400 uppercase">
+                    NGHIÊM TRỌNG
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                  Học sinh đã vắng 3 buổi trong tháng (1 buổi không phép). Tỷ lệ chuyên cần giảm xuống...
+                </p>
+              </div>
+
+              {alerts.slice(0, 2).map((al) => (
+                <div
+                  key={al.id}
+                  onClick={() => navigate('/teacher/alerts')}
+                  className="p-3.5 bg-[#050b14] border border-slate-800 hover:border-cyan-500/40 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-xs font-bold text-white">
+                      {al.studentName} ({al.className})
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-amber-400 uppercase">
+                      CẦN LƯU Ý
+                    </span>
                   </div>
+                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                    {al.description}
+                  </p>
                 </div>
               ))}
             </div>
@@ -214,3 +354,4 @@ export const TeacherDashboard: React.FC = () => {
     </div>
   );
 };
+

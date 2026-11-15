@@ -1,20 +1,20 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
+  LayoutGrid,
   Users,
   GraduationCap,
-  CalendarCheck,
+  Check,
   Award,
   BookOpen,
   Sparkles,
   ShieldAlert,
   Dices,
   Bell,
-  FileText,
+  Database,
+  FileCode2,
   BarChart3,
   Calendar,
-  Layers,
   FolderOpen,
   MessageSquare,
   Building,
@@ -23,7 +23,6 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  TrendingUp,
   CheckCircle2,
   X
 } from 'lucide-react';
@@ -38,7 +37,7 @@ interface SidebarProps {
 interface NavSubItem {
   to: string;
   label: string;
-  tab: 'topics' | 'create' | 'list';
+  tab?: 'topics' | 'create' | 'list';
 }
 
 interface NavItem {
@@ -46,69 +45,64 @@ interface NavItem {
   label: string;
   icon: any;
   badge?: string;
-  highlight?: boolean;
   subItems?: NavSubItem[];
 }
 
 interface NavModuleGroup {
   id: string;
   title: string;
-  icon: any;
   items: NavItem[];
 }
 
 const TEACHER_GROUPS: NavModuleGroup[] = [
   {
-    id: 'core',
-    title: 'Tổng quan & Bàn làm việc',
-    icon: LayoutDashboard,
-    items: [
-      { to: '/teacher/dashboard', label: 'Bàn làm việc chính', icon: LayoutDashboard }
-    ]
-  },
-  {
     id: 'classes_group',
-    title: 'Lớp học & Học sinh',
-    icon: Layers,
+    title: 'LỚP HỌC',
     items: [
-      { to: '/teacher/classes', label: 'Quản lý danh sách lớp', icon: Layers },
-      { to: '/teacher/students', label: 'Học sinh & Hồ sơ 360°', icon: GraduationCap },
-      { to: '/teacher/attendance', label: 'Điểm danh thông minh', icon: CalendarCheck },
-      { to: '/teacher/grades', label: 'Sổ điểm điện tử', icon: BarChart3 },
+      { to: '/teacher/classes', label: 'Lớp của tôi', icon: BookOpen },
+      { to: '/teacher/students', label: 'Học sinh', icon: Users },
+      {
+        to: '/teacher/attendance',
+        label: 'Điểm danh',
+        icon: Check,
+        subItems: [
+          { to: '/teacher/attendance', label: 'Điểm danh hằng ngày' },
+          { to: '/teacher/reports', label: 'Báo cáo điểm danh' }
+        ]
+      },
       { to: '/teacher/schedule', label: 'Thời khóa biểu', icon: Calendar }
     ]
   },
   {
     id: 'academics_group',
-    title: 'Dạy & Học',
-    icon: BookOpen,
+    title: 'DẠY & HỌC',
     items: [
-      { to: '/teacher/quizzes', label: 'Ngân hàng câu hỏi', icon: FileText },
+      { to: '/teacher/quizzes', label: 'Ngân hàng câu hỏi', icon: Database },
       {
         to: '/teacher/assignments',
         label: 'Giao bài tập',
-        icon: BookOpen,
+        icon: FileCode2,
+        badge: '4',
         subItems: [
           { to: '/teacher/assignments?tab=topics', label: 'Quản lý chủ đề', tab: 'topics' },
           { to: '/teacher/assignments?tab=create', label: 'Tạo bài tập', tab: 'create' },
           { to: '/teacher/assignments?tab=list', label: 'Danh sách bài tập đã giao', tab: 'list' }
         ]
       },
+      { to: '/teacher/grades', label: 'Sổ điểm điện tử', icon: BarChart3 },
       { to: '/teacher/auto-grading', label: 'Chấm bài tự động', icon: CheckCircle2 },
       { to: '/teacher/resources', label: 'Tài liệu số', icon: FolderOpen },
-      { to: '/teacher/ai', label: 'AI Hỗ trợ', icon: Sparkles, badge: 'AI' }
+      { to: '/teacher/ai', label: 'AI Hỗ trợ', icon: Sparkles }
     ]
   },
   {
     id: 'interactive_group',
-    title: 'Tương tác & Thi đua',
-    icon: Dices,
+    title: 'TƯƠNG TÁC & THI ĐUA',
     items: [
-      { to: '/teacher/tools', label: 'Công cụ lớp học', icon: Dices, highlight: true },
+      { to: '/teacher/tools', label: 'Công cụ lớp học', icon: Dices },
       { to: '/teacher/behavior', label: 'Hành vi & Sao thi đua', icon: Award },
       { to: '/teacher/alerts', label: 'Cảnh báo thông minh', icon: ShieldAlert },
-      { to: '/teacher/announcements', label: 'Bảng tin & Thông báo', icon: Bell },
-      { to: '/teacher/reports', label: 'Báo cáo & Thống kê', icon: TrendingUp }
+      { to: '/teacher/announcements', label: 'Bảng tin & Thông báo', icon: Bell }
     ]
   }
 ];
@@ -116,29 +110,19 @@ const TEACHER_GROUPS: NavModuleGroup[] = [
 const STUDENT_GROUPS: NavModuleGroup[] = [
   {
     id: 'std_main',
-    title: 'Góc học tập',
-    icon: LayoutDashboard,
+    title: 'GÓC HỌC TẬP',
     items: [
-      { to: '/student/dashboard', label: 'Cổng học sinh', icon: LayoutDashboard },
-      { to: '/student/schedule', label: 'Lịch học trong tuần', icon: Calendar }
-    ]
-  },
-  {
-    id: 'std_assignments',
-    title: 'Bài tập & Thi cử',
-    icon: BookOpen,
-    items: [
+      { to: '/student/schedule', label: 'Lịch học trong tuần', icon: Calendar },
       { to: '/student/assignments', label: 'Bài tập của em', icon: BookOpen },
-      { to: '/student/quizzes', label: 'Kiểm tra trắc nghiệm', icon: FileText },
+      { to: '/student/quizzes', label: 'Kiểm tra trắc nghiệm', icon: Database },
       { to: '/student/grades', label: 'Bảng điểm & Xếp loại', icon: BarChart3 }
     ]
   },
   {
     id: 'std_resources',
-    title: 'Rèn luyện & Học liệu',
-    icon: FolderOpen,
+    title: 'RÈN LUYỆN & HỌC LIỆU',
     items: [
-      { to: '/student/attendance', label: 'Chuyên cần', icon: CalendarCheck },
+      { to: '/student/attendance', label: 'Chuyên cần', icon: Check },
       { to: '/student/resources', label: 'Học liệu & Bài giảng', icon: FolderOpen },
       { to: '/student/notifications', label: 'Thông báo lớp', icon: Bell }
     ]
@@ -148,27 +132,11 @@ const STUDENT_GROUPS: NavModuleGroup[] = [
 const PARENT_GROUPS: NavModuleGroup[] = [
   {
     id: 'parent_main',
-    title: 'Theo dõi con',
-    icon: LayoutDashboard,
+    title: 'THEO DÕI CON',
     items: [
-      { to: '/parent/dashboard', label: 'Cổng phụ huynh', icon: LayoutDashboard },
-      { to: '/parent/children', label: 'Hồ sơ học sinh', icon: GraduationCap }
-    ]
-  },
-  {
-    id: 'parent_progress',
-    title: 'Tiến độ học tập',
-    icon: BarChart3,
-    items: [
+      { to: '/parent/children', label: 'Hồ sơ học sinh', icon: GraduationCap },
       { to: '/parent/grades', label: 'Điểm số & Tiến độ', icon: BarChart3 },
-      { to: '/parent/attendance', label: 'Chuyên cần & Vắng', icon: CalendarCheck }
-    ]
-  },
-  {
-    id: 'parent_connect',
-    title: 'Gắn kết nhà trường',
-    icon: MessageSquare,
-    items: [
+      { to: '/parent/attendance', label: 'Chuyên cần & Vắng', icon: Check },
       { to: '/parent/messages', label: 'Trao đổi với GVCN', icon: MessageSquare },
       { to: '/parent/notifications', label: 'Thông báo nhà trường', icon: Bell }
     ]
@@ -177,27 +145,11 @@ const PARENT_GROUPS: NavModuleGroup[] = [
 
 const ADMIN_GROUPS: NavModuleGroup[] = [
   {
-    id: 'adm_core',
-    title: 'Hệ thống Quản trị',
-    icon: LayoutDashboard,
-    items: [
-      { to: '/admin/dashboard', label: 'Bảng điều khiển Admin', icon: LayoutDashboard }
-    ]
-  },
-  {
     id: 'adm_management',
-    title: 'Quản lý Cơ sở & Nhân sự',
-    icon: Building,
+    title: 'QUẢN TRỊ HỆ THỐNG',
     items: [
       { to: '/admin/classes', label: 'Quản lý trường & Lớp', icon: Building },
-      { to: '/admin/users', label: 'Quản lý Người dùng & RBAC', icon: Users }
-    ]
-  },
-  {
-    id: 'adm_system',
-    title: 'An toàn & Cấu hình',
-    icon: Settings,
-    items: [
+      { to: '/admin/users', label: 'Quản lý Người dùng & RBAC', icon: Users },
       { to: '/admin/audit-logs', label: 'Nhật ký hệ thống (Audit)', icon: History },
       { to: '/admin/backups', label: 'Sao lưu & Phục hồi JSON', icon: HardDriveDownload },
       { to: '/admin/settings', label: 'Cấu hình hệ thống', icon: Settings }
@@ -207,11 +159,9 @@ const ADMIN_GROUPS: NavModuleGroup[] = [
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { role } = useAuth();
-  const { selectedClass } = useClass();
+  const { classes, selectedClass, selectedClassId, setSelectedClassId } = useClass();
   const location = useLocation();
-  const sidebarRef = useRef<HTMLElement | null>(null);
 
-  // Pick group based on role with stable constant references
   const currentGroups = useMemo(() => {
     if (role === 'student') return STUDENT_GROUPS;
     if (role === 'parent') return PARENT_GROUPS;
@@ -219,39 +169,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     return TEACHER_GROUPS;
   }, [role]);
 
-  // Chỉ lưu tối đa 1 nhóm đang mở (null = đóng tất cả)
-  // Khi bấm vào nhóm khác, nhóm đã mở trước đó tự động tắt
-  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const dashboardPath =
+    role === 'student'
+      ? '/student/dashboard'
+      : role === 'parent'
+      ? '/parent/dashboard'
+      : role === 'admin'
+      ? '/admin/dashboard'
+      : '/teacher/dashboard';
+
+  // Mở sẵn nhóm LỚP HỌC và DẠY & HỌC như giao diện mẫu OmniClass
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    classes_group: true,
+    academics_group: true,
+    interactive_group: false,
+    std_main: true,
+    std_resources: true,
+    parent_main: true,
+    adm_management: true
+  });
+
+  const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({
+    '/teacher/attendance': true,
+    '/teacher/assignments': true
+  });
 
   const toggleGroup = (groupId: string) => {
-    setOpenGroupId((prev) => (prev === groupId ? null : groupId));
+    setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
-  // Tự động đóng tất cả tính năng khi thoát menu (trên mobile hoặc đổi vai trò)
-  useEffect(() => {
-    if (!isOpen) {
-      setOpenGroupId(null);
-    }
-  }, [isOpen, role]);
-
-  // Tự động đóng các tính năng khi click ra ngoài khu vực menu
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
-        setOpenGroupId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, []);
-
-  const handleCloseMenu = () => {
-    setOpenGroupId(null);
-    onClose();
+  const toggleSubMenu = (path: string) => {
+    setOpenSubMenus((prev) => ({ ...prev, [path]: !prev[path] }));
   };
 
   return (
@@ -259,146 +207,169 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Mobile Backdrop */}
       {isOpen && (
         <div
-          onClick={handleCloseMenu}
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-40 lg:hidden"
+          onClick={onClose}
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-30 lg:hidden"
         />
       )}
 
-      {/* Sidebar Container: Tự động đóng các tính năng khi thoát chuột khỏi menu */}
+      {/* Sidebar Container */}
       <aside
-        ref={sidebarRef}
-        onMouseLeave={() => setOpenGroupId(null)}
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#080e1c] text-slate-300 flex flex-col transition-transform duration-300 ease-in-out border-r border-slate-800/80 ${
+        className={`fixed top-16 bottom-0 left-0 z-30 w-60 bg-[#050a12] text-slate-300 flex flex-col transition-transform duration-300 ease-in-out border-r border-cyan-500/20 ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Brand Header */}
-        <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-cyan-500/20">
-              SC
-            </div>
-            <div>
-              <h1 className="text-base font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                SMART CLASS
-              </h1>
-              <p className="text-[11px] text-cyan-400 font-medium">Hệ thống Lớp học Thông minh</p>
+        {/* CLASSROOM NODE Top Section */}
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider mb-1">
+            <span className="text-cyan-400 font-bold">CLASSROOM NODE</span>
+            <div className="flex items-center gap-2">
+              <span className="text-rose-400 font-bold">{selectedClass?.studentCount || 32} HS</span>
+              <button
+                onClick={onClose}
+                className="lg:hidden text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
-          <button
-            onClick={handleCloseMenu}
-            className="lg:hidden p-1.5 text-slate-400 hover:text-white rounded-lg"
+
+          <div className="relative">
+            <select
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              className="w-full bg-transparent text-sm font-extrabold text-white outline-none cursor-pointer pb-2 appearance-none"
+            >
+              {classes.map((c) => (
+                <option key={c.id} value={c.id} className="bg-[#07111f] text-white">
+                  Lớp {c.name}
+                </option>
+              ))}
+            </select>
+            <div className="h-[2px] w-full bg-slate-800 relative">
+              <div className="absolute top-0 left-0 h-full w-2/5 bg-cyan-400 shadow-[0_0_8px_#00e5ff]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Primary Overview Item (Tổng quan) with Cyan Slanted Right Edge */}
+        <div className="px-3 mb-2">
+          <NavLink
+            to={dashboardPath}
+            onClick={() => {
+              if (window.innerWidth < 1024) onClose();
+            }}
+            className={({ isActive }) =>
+              `omni-nav-slanted flex items-center gap-3 px-3.5 py-2.5 text-xs font-extrabold transition-all ${
+                isActive
+                  ? 'bg-[#00e5ff] text-slate-950 shadow-[0_0_20px_rgba(0,229,255,0.3)]'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900/80'
+              }`
+            }
           >
-            <X className="w-5 h-5" />
-          </button>
+            <LayoutGrid className="w-4 h-4 shrink-0" />
+            <span>Tổng quan</span>
+          </NavLink>
         </div>
 
-        {/* Section Header (Đã xóa nút Đóng/Mở tất cả và thẻ lớp trùng lặp với Header) */}
-        <div className="px-4 pt-3 pb-1.5 flex items-center justify-between text-[11px] text-slate-500">
-          <span className="font-semibold uppercase tracking-wider text-[10px]">Menu Chức Năng</span>
-        </div>
-
-        {/* Navigation Accordion Groups */}
-        <nav className="flex-1 overflow-y-auto px-3 py-1 space-y-2">
+        {/* Navigation Groups */}
+        <nav className="flex-1 overflow-y-auto px-3 py-1 space-y-4">
           {currentGroups.map((group) => {
-            const isGroupOpen = openGroupId === group.id;
-            const hasActiveChild = group.items.some((item) => location.pathname === item.to);
+            const isGroupOpen = openGroups[group.id] ?? true;
 
             return (
-              <div key={group.id} className="rounded-xl overflow-hidden bg-[#0b1324]/60 border border-slate-800/40">
-                {/* Header: Click mở nhóm hiện tại và tự động đóng nhóm trước đó */}
+              <div key={group.id} className="space-y-1">
+                {/* Group Header */}
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                    hasActiveChild
-                      ? 'bg-slate-800/90 text-cyan-400 border border-cyan-500/20'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-                  }`}
+                  className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-mono font-bold uppercase tracking-widest text-cyan-400 hover:text-cyan-300 cursor-pointer"
                 >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <group.icon className="w-4 h-4 text-cyan-400 shrink-0" />
-                    <span className="truncate">{group.title}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
-                    <span className="text-[10px] text-slate-500 font-normal">
-                      {isGroupOpen ? 'Đóng' : `Mở (${group.items.length})`}
-                    </span>
+                  <span>{group.title}</span>
+                  <div className="flex items-center gap-1 text-slate-400 font-mono text-[10px]">
+                    <span>({group.items.length})</span>
                     {isGroupOpen ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 transition-transform" />
+                      <ChevronDown className="w-3.5 h-3.5 text-cyan-400" />
                     ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-500 transition-transform" />
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
                     )}
                   </div>
                 </button>
 
-                {/* Sub-items (nested screens): Open/Close container */}
+                {/* Group Items */}
                 {isGroupOpen && (
-                  <div className="mt-1 pl-2 pr-1 pb-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150 border-l-2 border-slate-800 ml-3">
+                  <div className="space-y-0.5">
                     {group.items.map((item) => {
                       const currentTab = new URLSearchParams(location.search).get('tab');
                       const isParentActive = location.pathname === item.to;
+                      const isSubOpen = openSubMenus[item.to] ?? true;
 
                       return (
-                        <div key={item.to} className="space-y-1">
-                          <NavLink
-                            to={item.to}
-                            onClick={() => {
-                              if (window.innerWidth < 1024 && !item.subItems) handleCloseMenu();
-                            }}
-                            className={({ isActive }) =>
-                              `flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                                isActive
-                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold shadow-md shadow-cyan-950/50'
-                                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
-                              }`
-                            }
-                          >
-                            <div className="flex items-center gap-2.5 truncate">
-                              <item.icon className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate">{item.label}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {item.badge && (
-                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-amber-500 text-slate-950">
-                                  {item.badge}
-                                </span>
-                              )}
-                              {item.subItems && (
-                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
-                                  3 mục
-                                </span>
-                              )}
-                            </div>
-                          </NavLink>
+                        <div key={item.to}>
+                          <div className="flex items-center justify-between">
+                            <NavLink
+                              to={item.to}
+                              onClick={() => {
+                                if (item.subItems) {
+                                  toggleSubMenu(item.to);
+                                } else if (window.innerWidth < 1024) {
+                                  onClose();
+                                }
+                              }}
+                              className={({ isActive }) =>
+                                `flex-1 flex items-center justify-between px-2.5 py-2 text-xs font-medium transition-colors ${
+                                  isActive && !item.subItems
+                                    ? 'bg-cyan-950/60 text-cyan-300 font-bold border-l-2 border-cyan-400'
+                                    : isActive
+                                    ? 'text-white font-bold'
+                                    : 'text-slate-300 hover:text-white hover:bg-slate-900/60'
+                                }`
+                              }
+                            >
+                              <div className="flex items-center gap-2.5 truncate">
+                                <item.icon className="w-4 h-4 text-cyan-400 shrink-0" />
+                                <span className="truncate">{item.label}</span>
+                              </div>
 
-                          {/* 3 Menu con của Giao bài tập: Quản lý chủ đề; Tạo bài tập; Danh sách bài tập đã giao */}
-                          {item.subItems && (
-                            <div className="ml-4 pl-2.5 border-l border-slate-800/90 space-y-0.5 py-0.5">
+                              <div className="flex items-center gap-1.5">
+                                {item.badge && (
+                                  <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-rose-950/90 text-rose-400 border border-rose-500/40">
+                                    {item.badge}
+                                  </span>
+                                )}
+                                {item.subItems && (
+                                  <ChevronDown
+                                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                                      isSubOpen ? '' : '-rotate-90'
+                                    }`}
+                                  />
+                                )}
+                              </div>
+                            </NavLink>
+                          </div>
+
+                          {/* Sub-items with vertical guide line */}
+                          {item.subItems && isSubOpen && (
+                            <div className="ml-4 pl-3 border-l border-slate-800 space-y-0.5 my-1">
                               {item.subItems.map((sub) => {
-                                const isSubActive =
-                                  isParentActive &&
-                                  (currentTab === sub.tab || (!currentTab && sub.tab === 'list'));
+                                const isSubActive = sub.tab
+                                  ? isParentActive &&
+                                    (currentTab === sub.tab || (!currentTab && sub.tab === 'list'))
+                                  : location.pathname === sub.to;
+
                                 return (
                                   <NavLink
                                     key={sub.to}
                                     to={sub.to}
                                     onClick={() => {
-                                      if (window.innerWidth < 1024) handleCloseMenu();
+                                      if (window.innerWidth < 1024) onClose();
                                     }}
-                                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-all ${
+                                    className={`block py-1.5 px-2 text-xs transition-colors ${
                                       isSubActive
-                                        ? 'bg-cyan-950/80 text-cyan-300 font-bold border border-cyan-500/30'
-                                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                                        ? 'text-cyan-300 font-bold'
+                                        : 'text-slate-400 hover:text-slate-200'
                                     }`}
                                   >
-                                    <span
-                                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                        isSubActive ? 'bg-cyan-400' : 'bg-slate-600'
-                                      }`}
-                                    />
-                                    <span className="truncate">{sub.label}</span>
+                                    {sub.label}
                                   </NavLink>
                                 );
                               })}
@@ -414,13 +385,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           })}
         </nav>
 
-        {/* Footer info */}
-        <div className="p-3 border-t border-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between">
-          <span>THPT Chuyên Nguyễn Huệ</span>
-          <span className="text-slate-400 font-mono">v2.6.0</span>
+        {/* Bottom Brand Footer */}
+        <div className="p-4 border-t border-cyan-500/15">
+          <p className="text-xs font-mono font-bold text-slate-200">OmniClass</p>
+          <p className="text-[10px] font-mono text-cyan-400 mt-0.5">
+            AI-Powered Learning Management
+          </p>
         </div>
       </aside>
     </>
   );
 };
+
 

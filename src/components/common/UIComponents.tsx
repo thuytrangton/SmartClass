@@ -35,31 +35,29 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-lg hover:border-slate-700 transition-all duration-200 ${
+      className={`omni-card p-5 transition-all duration-200 ${
         onClick ? 'cursor-pointer hover:border-cyan-500/40' : ''
       }`}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-slate-400">{title}</span>
-        <div className={`p-2.5 rounded-xl border ${colorMap[color]}`}>
-          <Icon className="w-5 h-5" />
+        <span className="text-xs font-medium text-slate-300">{title}</span>
+        <div className={`p-2 border ${colorMap[color]}`}>
+          <Icon className="w-4 h-4" />
         </div>
       </div>
       <div className="flex items-baseline gap-2">
-        <h3 className="text-2xl font-bold text-slate-100 tracking-tight">{value}</h3>
+        <h3 className="text-2xl font-extrabold font-mono text-white tracking-tight">{value}</h3>
         {change && (
           <span
-            className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-              changePositive
-                ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800/50'
-                : 'bg-rose-950/70 text-rose-400 border-rose-800/50'
+            className={`text-xs font-mono font-bold ${
+              changePositive ? 'text-emerald-400' : 'text-rose-400'
             }`}
           >
             {change}
           </span>
         )}
       </div>
-      {subtitle && <p className="text-xs text-slate-400 mt-1 font-normal">{subtitle}</p>}
+      {subtitle && <p className="text-xs text-slate-400 mt-2 font-normal">{subtitle}</p>}
     </div>
   );
 };
