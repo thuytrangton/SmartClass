@@ -72,6 +72,10 @@ export const AppRoutes: React.FC = () => {
         <Route path="attendance" element={<AttendanceManager />} />
         <Route path="grades" element={<GradebookManager />} />
         <Route path="assignments" element={<AssignmentList />} />
+        <Route path="assignments/new" element={<AssignmentList />} />
+        <Route path="assignments/:id" element={<AssignmentList />} />
+        <Route path="assignments/:id/submissions/:sid" element={<AssignmentList />} />
+        <Route path="assignments/:id/reports" element={<AssignmentList />} />
         <Route path="auto-grading" element={<AutoGrading />} />
         <Route path="quizzes" element={<QuizManager />} />
         <Route path="tools" element={<ClassroomTools />} />

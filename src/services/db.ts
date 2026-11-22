@@ -303,7 +303,23 @@ class ReactiveDatabase {
       if (!snapshot.empty) {
         const loaded: Assignment[] = [];
         snapshot.forEach((d) => loaded.push(d.data() as Assignment));
-        this.assignments = loaded;
+        // Migrate legacy seed records if they still carry old 22-student / Oct-2026 placeholder metadata
+        const hasLegacySeed = loaded.some(
+          (a) => a.id === 'asn-01' && (a.totalStudents === 22 || a.dueDate === '2026-10-10T23:59:59')
+        );
+        if (hasLegacySeed) {
+          const seedMap = new Map(INITIAL_ASSIGNMENTS.map((a) => [a.id, a]));
+          this.assignments = loaded.map((a) => {
+            const freshSeed = seedMap.get(a.id);
+            if (freshSeed && (a.totalStudents === 22 || a.dueDate?.startsWith('2026-10-'))) {
+              setDoc(doc(firestoreDb, 'assignments', a.id), freshSeed, { merge: true }).catch(console.warn);
+              return { ...a, ...freshSeed };
+            }
+            return a;
+          });
+        } else {
+          this.assignments = loaded;
+        }
         this.notify();
       } else {
         this.seedInitialAssignments();
@@ -318,7 +334,75 @@ class ReactiveDatabase {
       if (!snapshot.empty) {
         const loaded: Submission[] = [];
         snapshot.forEach((d) => loaded.push(d.data() as Submission));
-        this.submissions = loaded;
+
+        // Normalize any legacy studentId (e.g. 'std-1' -> 'std-10a1-01' or by studentName)
+        const studentPool = this.students.length > 0 ? this.students : INITIAL_STUDENTS;
+        const validStudentIds = new Set(studentPool.map((s) => s.id));
+        const normalizedMap = new Map<string, Submission>();
+
+        loaded.forEach((rawSub) => {
+          let resolvedStudentId = rawSub.studentId;
+          let resolvedStudentName = rawSub.studentName;
+
+          if (!validStudentIds.has(resolvedStudentId)) {
+            // Legacy pattern 'std-1' .. 'std-12'
+            const legacyMatch = /^std-(\d+)$/i.exec(resolvedStudentId || '');
+            if (legacyMatch) {
+              const candidateId = `std-10a1-${legacyMatch[1].padStart(2, '0')}`;
+              const candidateSt = studentPool.find((s) => s.id === candidateId);
+              if (candidateSt) {
+                resolvedStudentId = candidateSt.id;
+                resolvedStudentName = candidateSt.fullName;
+              }
+            }
+          }
+
+          if (!validStudentIds.has(resolvedStudentId) && rawSub.studentName) {
+            const byName = studentPool.find(
+              (s) => s.fullName.trim().toLowerCase() === rawSub.studentName.trim().toLowerCase()
+            );
+            if (byName) {
+              resolvedStudentId = byName.id;
+              resolvedStudentName = byName.fullName;
+            }
+          }
+
+          // Skip orphan submissions that do not belong to any student in the school
+          if (!validStudentIds.has(resolvedStudentId)) {
+            return;
+          }
+
+          const normalizedSub: Submission = {
+            ...rawSub,
+            studentId: resolvedStudentId,
+            studentName: resolvedStudentName
+          };
+
+          const key = `${normalizedSub.assignmentId}__${normalizedSub.studentId}`;
+          const existing = normalizedMap.get(key);
+          if (!existing) {
+            normalizedMap.set(key, normalizedSub);
+          } else {
+            const existingTime = new Date(existing.updatedAt || existing.submittedAt || 0).getTime();
+            const nextTime = new Date(normalizedSub.updatedAt || normalizedSub.submittedAt || 0).getTime();
+            if (nextTime >= existingTime) {
+              normalizedMap.set(key, normalizedSub);
+            }
+          }
+        });
+
+        // Ensure all INITIAL_SUBMISSIONS for asn-01..asn-03 exist if database only had the old 3-item seed
+        if (loaded.length <= 3) {
+          INITIAL_SUBMISSIONS.forEach((seedSub) => {
+            const key = `${seedSub.assignmentId}__${seedSub.studentId}`;
+            if (!normalizedMap.has(key)) {
+              normalizedMap.set(key, seedSub);
+              setDoc(doc(firestoreDb, 'submissions', seedSub.id), seedSub, { merge: true }).catch(console.warn);
+            }
+          });
+        }
+
+        this.submissions = Array.from(normalizedMap.values());
         this.notify();
       } else {
         this.seedInitialSubmissions();
@@ -971,33 +1055,314 @@ class ReactiveDatabase {
     return newAsn;
   }
 
-  public copyAssignment(id: string): Assignment | undefined {
+  public copyAssignment(
+    id: string,
+    options?: {
+      title?: string;
+      classId?: string;
+      dueDate?: string;
+      keepSnapshots?: boolean;
+      teacherName?: string;
+    }
+  ): Assignment | undefined {
     const source = this.assignments.find((a) => a.id === id);
     if (!source) return undefined;
     const nowIso = new Date().toISOString();
+    const targetCls = options?.classId
+      ? this.classes.find((c) => c.id === options.classId)
+      : this.classes.find((c) => c.id === source.classId);
+    const nextClassId = targetCls?.id || source.classId;
+    const nextClassName = targetCls?.name || source.className;
+    const classStudents = this.students.filter(
+      (s) => s.classId === nextClassId && s.status === 'active'
+    );
+    const keepSnaps = options?.keepSnapshots !== undefined ? options.keepSnapshots : true;
+
     const copied: Assignment = {
       ...source,
       id: `asn-${Date.now()}-copy`,
-      title: `${source.title} (Bản sao)`,
+      code: `${source.code || 'BT'}-COPY`,
+      title: options?.title?.trim() || `${source.title} (Bản sao)`,
+      classId: nextClassId,
+      className: nextClassName,
+      targetClassIds: [nextClassId],
+      targetClassNames: [nextClassName],
+      assignedStudentIds: classStudents.map((s) => s.id),
+      totalStudents: classStudents.length || source.totalStudents || 0,
+      dueDate: options?.dueDate || source.dueDate,
+      questionSnapshots: keepSnaps ? source.questionSnapshots : [],
       status: 'draft',
+      receiveStatus: 'draft',
+      withdrawnAt: undefined,
+      withdrawReason: undefined,
+      dueOverrides: {},
+      reminderHistory: {},
       createdAt: nowIso,
       updatedAt: nowIso,
       assignedAt: undefined,
       submissionCount: 0,
-      gradedCount: 0
+      gradedCount: 0,
+      publishedCount: 0
     };
     this.assignments.unshift(copied);
     const path = `assignments/${copied.id}`;
     setDoc(doc(firestoreDb, 'assignments', copied.id), copied).catch((err) => {
       handleFirestoreError(err, OperationType.WRITE, path);
     });
-    this.addAuditLog('Sao chép bài tập', 'assignment', `Sao chép bài tập "${source.title}" thành bản nháp mới`);
+    this.addAuditLog(
+      'Sao chép bài tập',
+      'assignment',
+      `${options?.teacherName || source.teacherName} sao chép bài tập "${source.title}" thành bản nháp "${copied.title}" (Lớp ${nextClassName})`
+    );
     this.notify();
     return copied;
   }
 
-  public closeAssignment(id: string, teacherName: string): Assignment | undefined {
-    return this.updateAssignment(id, { status: 'closed' });
+  public closeAssignment(id: string, teacherName: string, reason?: string): Assignment | undefined {
+    const res = this.updateAssignment(id, {
+      status: 'closed',
+      receiveStatus: 'closed',
+      closeReason: reason || 'Giáo viên đóng nhận bài'
+    });
+    if (res) {
+      this.addAuditLog(
+        'Đóng nhận bài tập',
+        'assignment',
+        `${teacherName} đã đóng nhận bài "${res.title}" (Lớp ${res.className}). Lý do: ${reason || 'Đóng theo kế hoạch'}`
+      );
+    }
+    return res;
+  }
+
+  public toggleAssignmentReceiveStatus(
+    id: string,
+    targetStatus: 'open' | 'closed',
+    reason: string,
+    teacherName: string
+  ): Assignment | undefined {
+    const asn = this.assignments.find((a) => a.id === id);
+    if (!asn) return undefined;
+    const nextStatus = targetStatus === 'open' ? 'published' : 'closed';
+    const updated = this.updateAssignment(id, {
+      status: nextStatus,
+      receiveStatus: targetStatus,
+      closeReason: reason
+    });
+    if (updated) {
+      this.addAuditLog(
+        targetStatus === 'open' ? 'Mở lại nhận bài tập' : 'Đóng nhận bài tập',
+        'assignment',
+        `${teacherName} đã ${targetStatus === 'open' ? 'mở lại nhận bài' : 'đóng nhận bài'} "${updated.title}". Lý do: ${reason}`
+      );
+    }
+    return updated;
+  }
+
+  public withdrawAssignment(id: string, reason: string, teacherName: string): Assignment | undefined {
+    const idx = this.assignments.findIndex((a) => a.id === id);
+    if (idx === -1) return undefined;
+    const nowIso = new Date().toISOString();
+    const current = this.assignments[idx];
+    const updated: Assignment = {
+      ...current,
+      status: 'withdrawn',
+      receiveStatus: 'withdrawn',
+      withdrawnAt: nowIso,
+      withdrawReason: reason,
+      updatedAt: nowIso
+    };
+    this.assignments[idx] = updated;
+    const path = `assignments/${id}`;
+    setDoc(doc(firestoreDb, 'assignments', id), updated, { merge: true }).catch((err) => {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    });
+    this.addAuditLog(
+      'Thu hồi lượt giao bài tập',
+      'assignment',
+      `${teacherName} đã thu hồi bài tập "${current.title}" (Lớp ${current.className}). Lý do: ${reason}. Dữ liệu bài nộp và điểm lịch sử được giữ nguyên.`
+    );
+    this.notify();
+    return updated;
+  }
+
+  public reassignAssignment(
+    sourceId: string,
+    targetClassIds: string[],
+    newDueDate: string,
+    customTitle: string,
+    teacherName: string
+  ): Assignment | undefined {
+    const source = this.assignments.find((a) => a.id === sourceId);
+    if (!source) return undefined;
+    const chosenClasses = this.classes.filter((c) => targetClassIds.includes(c.id));
+    const primaryClass = chosenClasses[0] || this.classes.find((c) => c.id === source.classId);
+    const nowIso = new Date().toISOString();
+    return this.addAssignment({
+      ...source,
+      title: customTitle.trim() || source.title,
+      classId: primaryClass?.id || source.classId,
+      className: chosenClasses.map((c) => c.name).join(', ') || source.className,
+      targetClassIds: chosenClasses.map((c) => c.id),
+      targetClassNames: chosenClasses.map((c) => c.name),
+      openAt: nowIso,
+      dueDate: newDueDate,
+      status: 'published',
+      receiveStatus: 'open',
+      withdrawnAt: undefined,
+      withdrawReason: undefined,
+      dueOverrides: {},
+      reminderHistory: {},
+      teacherName: teacherName || source.teacherName
+    });
+  }
+
+  public extendAssignmentDeadline(
+    id: string,
+    newDueDate: string,
+    reason: string,
+    teacherName: string,
+    studentIds?: string[]
+  ): Assignment | undefined {
+    const idx = this.assignments.findIndex((a) => a.id === id);
+    if (idx === -1) return undefined;
+    const current = this.assignments[idx];
+    const nowIso = new Date().toISOString();
+
+    // Case 1: Gia hạn cá nhân hoặc một nhóm học sinh cụ thể
+    if (studentIds && studentIds.length > 0) {
+      const nextOverrides = { ...(current.dueOverrides || {}) };
+      studentIds.forEach((sid) => {
+        nextOverrides[sid] = {
+          studentId: sid,
+          dueDate: newDueDate,
+          reason,
+          updatedBy: teacherName,
+          updatedAt: nowIso
+        };
+      });
+
+      const updatedAsn: Assignment = {
+        ...current,
+        dueOverrides: nextOverrides,
+        updatedAt: nowIso
+      };
+      this.assignments[idx] = updatedAsn;
+      const path = `assignments/${id}`;
+      setDoc(
+        doc(firestoreDb, 'assignments', id),
+        { dueOverrides: nextOverrides, updatedAt: nowIso },
+        { merge: true }
+      ).catch((err) => {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      });
+
+      const newDueMs = new Date(newDueDate).getTime();
+      this.submissions
+        .filter((s) => s.assignmentId === id && studentIds.includes(s.studentId))
+        .forEach((sub) => {
+          sub.dueOverrideAt = newDueDate;
+          if (sub.submittedAt) {
+            const subMs = new Date(sub.submittedAt).getTime();
+            const isLateNow = subMs > newDueMs;
+            sub.isLate = isLateNow;
+            sub.lateMinutes = isLateNow ? Math.max(1, Math.round((subMs - newDueMs) / 60000)) : 0;
+            if (sub.status === 'submitted' || sub.status === 'late') {
+              sub.status = isLateNow ? 'late' : 'submitted';
+            }
+          }
+          sub.updatedAt = nowIso;
+          setDoc(doc(firestoreDb, 'submissions', sub.id), sub, { merge: true }).catch(console.warn);
+        });
+
+      this.addAuditLog(
+        'Gia hạn nộp bài cá nhân/nhóm',
+        'assignment',
+        `${teacherName} gia hạn bài "${current.title}" cho ${studentIds.length} học sinh tới ${new Date(newDueDate).toLocaleString('vi-VN')}. Lý do: ${reason}`
+      );
+      this.notify();
+      return updatedAsn;
+    }
+
+    // Case 2: Gia hạn cho toàn bộ lớp
+    const updated = this.updateAssignmentDeadline(id, newDueDate, teacherName);
+    if (updated && reason) {
+      this.addAuditLog(
+        'Gia hạn nộp bài cả lớp',
+        'assignment',
+        `${teacherName} gia hạn bài "${updated.title}" tới ${new Date(newDueDate).toLocaleString('vi-VN')}. Lý do: ${reason}`
+      );
+    }
+    return updated;
+  }
+
+  public remindStudentsAdvanced(
+    id: string,
+    studentIds: string[],
+    channel: 'in_app' | 'email' | 'parent_app',
+    message: string,
+    teacherName: string,
+    forceDuplicate = false
+  ): { sentCount: number; skippedCount: number; failedCount: number; recipientNames: string[] } {
+    const idx = this.assignments.findIndex((a) => a.id === id);
+    if (idx === -1) return { sentCount: 0, skippedCount: 0, failedCount: 0, recipientNames: [] };
+    const asn = this.assignments[idx];
+    const nowMs = Date.now();
+    const nowIso = new Date().toISOString();
+    const history = { ...(asn.reminderHistory || {}) };
+
+    let sentCount = 0;
+    let skippedCount = 0;
+    const recipientNames: string[] = [];
+
+    studentIds.forEach((sid) => {
+      const lastSentIso = history[sid];
+      const isRecent =
+        !forceDuplicate && lastSentIso && nowMs - new Date(lastSentIso).getTime() < 15 * 60 * 1000;
+      if (isRecent) {
+        skippedCount += 1;
+      } else {
+        history[sid] = nowIso;
+        sentCount += 1;
+        const st = this.students.find((s) => s.id === sid);
+        if (st) recipientNames.push(st.fullName);
+      }
+    });
+
+    if (sentCount > 0) {
+      const updatedAsn: Assignment = {
+        ...asn,
+        reminderHistory: history,
+        updatedAt: nowIso
+      };
+      this.assignments[idx] = updatedAsn;
+      setDoc(
+        doc(firestoreDb, 'assignments', id),
+        { reminderHistory: history, updatedAt: nowIso },
+        { merge: true }
+      ).catch(console.warn);
+
+      this.addAnnouncement({
+        title: `Nhắc nộp bài tập: ${asn.title}`,
+        content:
+          message.trim() ||
+          `${teacherName} nhắc ${sentCount} học sinh lớp ${asn.className} hoàn thành bài "${asn.title}".`,
+        authorId: asn.teacherId,
+        authorName: teacherName,
+        targetRole: channel === 'parent_app' ? 'parents' : 'students',
+        targetClassId: asn.classId,
+        targetClassName: asn.className,
+        isUrgent: true
+      });
+
+      this.addAuditLog(
+        'Gửi nhắc nộp bài tập',
+        'assignment',
+        `${teacherName} gửi nhắc nộp bài "${asn.title}" qua kênh ${channel} cho ${sentCount} học sinh (${skippedCount} bỏ qua chống trùng)`
+      );
+      this.notify();
+    }
+
+    return { sentCount, skippedCount, failedCount: 0, recipientNames };
   }
 
   public remindUnsubmittedStudents(id: string, teacherName: string): number {
@@ -1135,12 +1500,15 @@ class ReactiveDatabase {
     this.submissions
       .filter((s) => s.assignmentId === id && (s.status === 'submitted' || s.status === 'late'))
       .forEach((sub) => {
+        const effectiveDueIso = updatedAsn.dueOverrides?.[sub.studentId]?.dueDate || newDueDate;
+        const effectiveDueMs = new Date(effectiveDueIso).getTime() || newDueMs;
         const subMs = new Date(sub.submittedAt).getTime();
-        const isLateNow = subMs > newDueMs;
+        const isLateNow = subMs > effectiveDueMs;
         const nextStatus = isLateNow ? 'late' : 'submitted';
         if (sub.status !== nextStatus || sub.isLate !== isLateNow) {
           sub.status = nextStatus;
           sub.isLate = isLateNow;
+          sub.lateMinutes = isLateNow ? Math.max(1, Math.round((subMs - effectiveDueMs) / 60000)) : 0;
           sub.updatedAt = nowIso;
           setDoc(doc(firestoreDb, 'submissions', sub.id), sub, { merge: true }).catch(console.warn);
         }
@@ -1181,50 +1549,294 @@ class ReactiveDatabase {
     return this.submissions.filter((s) => s.assignmentId === assignmentId);
   }
 
+  private syncAssignmentCounts(assignmentId: string) {
+    const asn = this.assignments.find((a) => a.id === assignmentId);
+    if (!asn) return;
+    const targetIds =
+      asn.targetClassIds && asn.targetClassIds.length > 0 ? asn.targetClassIds : [asn.classId];
+    const recipients = this.students.filter(
+      (s) =>
+        (asn.assignedStudentIds && asn.assignedStudentIds.includes(s.id)) ||
+        (targetIds.includes(s.classId) && s.status === 'active')
+    );
+    const recipientIds = new Set(recipients.map((r) => r.id));
+    const asnSubs = this.submissions.filter(
+      (s) =>
+        s.assignmentId === asn.id &&
+        (recipientIds.size === 0 || recipientIds.has(s.studentId))
+    );
+
+    const validSubs = asnSubs.filter(
+      (s) =>
+        s.status === 'submitted' ||
+        s.status === 'late' ||
+        s.status === 'graded' ||
+        s.status === 'redo_requested'
+    );
+    const uniqueSubmitted = new Set(validSubs.map((s) => s.studentId));
+    const uniqueGraded = new Set(
+      validSubs
+        .filter(
+          (s) =>
+            s.status === 'graded' ||
+            s.gradeStatus === 'graded' ||
+            s.gradeStatus === 'published'
+        )
+        .map((s) => s.studentId)
+    );
+    const uniquePublished = new Set(
+      validSubs.filter((s) => s.gradeStatus === 'published').map((s) => s.studentId)
+    );
+
+    asn.totalStudents = recipients.length || asn.totalStudents || 0;
+    asn.submissionCount = uniqueSubmitted.size;
+    asn.gradedCount = uniqueGraded.size;
+    asn.publishedCount = uniquePublished.size;
+
+    setDoc(
+      doc(firestoreDb, 'assignments', asn.id),
+      {
+        totalStudents: asn.totalStudents,
+        gradedCount: asn.gradedCount,
+        submissionCount: asn.submissionCount,
+        publishedCount: asn.publishedCount
+      },
+      { merge: true }
+    ).catch(console.warn);
+  }
+
   public gradeSubmission(
     submissionId: string,
     score: number | undefined,
     feedback: string,
     teacherName: string,
     status: 'graded' | 'redo_requested' = 'graded',
-    extra?: { objectiveScore?: number; essayScore?: number; answers?: SubmissionQuestionAnswer[] }
+    extra?: {
+      objectiveScore?: number;
+      essayScore?: number;
+      answers?: SubmissionQuestionAnswer[];
+      gradeStatus?: Submission['gradeStatus'];
+      publishImmediately?: boolean;
+    }
   ) {
     const sub = this.submissions.find((s) => s.id === submissionId);
     if (sub) {
       const nowIso = new Date().toISOString();
-      if (score !== undefined) {
-        sub.score = score;
+      const asn = this.assignments.find((a) => a.id === sub.assignmentId);
+      const isDraft = extra?.gradeStatus === 'draft_grade';
+
+      if (isDraft) {
+        sub.draftScore = score;
+        sub.draftFeedback = feedback;
+        sub.gradeStatus = 'draft_grade';
+      } else {
+        if (score !== undefined) {
+          sub.score = score;
+        }
+        sub.feedback = feedback;
+        sub.status = status;
+        sub.gradedAt = nowIso;
+        sub.gradedBy = teacherName;
+        if (status === 'graded') {
+          const shouldPublish =
+            extra?.publishImmediately ||
+            extra?.gradeStatus === 'published' ||
+            asn?.showResultPolicy === 'immediately';
+          sub.gradeStatus = shouldPublish ? 'published' : 'graded';
+          if (shouldPublish) sub.publishedAt = nowIso;
+        } else {
+          sub.gradeStatus = 'ungraded';
+        }
       }
+
       if (extra?.objectiveScore !== undefined) sub.objectiveScore = extra.objectiveScore;
       if (extra?.essayScore !== undefined) sub.essayScore = extra.essayScore;
       if (extra?.answers) sub.answers = extra.answers;
-      sub.feedback = feedback;
-      sub.status = status;
-      sub.gradedAt = nowIso;
-      sub.gradedBy = teacherName;
       sub.updatedAt = nowIso;
+      sub.version = (sub.version || 1) + 1;
 
       const subPath = `submissions/${sub.id}`;
       setDoc(doc(firestoreDb, 'submissions', sub.id), sub, { merge: true }).catch((err) => {
         handleFirestoreError(err, OperationType.WRITE, subPath);
       });
 
-      // Recalculate gradedCount and submissionCount in assignment
-      const asn = this.assignments.find((a) => a.id === sub.assignmentId);
-      if (asn) {
-        const asnSubs = this.submissions.filter((s) => s.assignmentId === asn.id);
-        asn.gradedCount = asnSubs.filter((s) => s.status === 'graded').length;
-        asn.submissionCount = asnSubs.filter(
-          (s) => s.status === 'submitted' || s.status === 'late' || s.status === 'graded' || s.status === 'redo_requested'
-        ).length;
-        setDoc(
-          doc(firestoreDb, 'assignments', asn.id),
-          { gradedCount: asn.gradedCount, submissionCount: asn.submissionCount },
-          { merge: true }
-        ).catch(console.warn);
-      }
+      this.syncAssignmentCounts(sub.assignmentId);
+      this.addAuditLog(
+        isDraft
+          ? 'Lưu nháp chấm bài'
+          : status === 'redo_requested'
+          ? 'Yêu cầu học sinh làm lại bài'
+          : 'Chấm điểm bài nộp',
+        'grade',
+        `${teacherName} ${
+          isDraft ? 'lưu nháp chấm' : status === 'redo_requested' ? 'yêu cầu làm lại' : `chấm ${score} điểm`
+        } cho học sinh ${sub.studentName}`
+      );
       this.notify();
     }
+  }
+
+  public reviseSubmissionGrade(
+    submissionId: string,
+    newScore: number,
+    reason: string,
+    teacherName: string,
+    feedback?: string
+  ): Submission | undefined {
+    const sub = this.submissions.find((s) => s.id === submissionId);
+    if (!sub) return undefined;
+    const nowIso = new Date().toISOString();
+    const oldScore = sub.score;
+
+    const revision = {
+      id: `rev-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      submissionId: sub.id,
+      oldScore,
+      newScore,
+      reason,
+      changedBy: teacherName,
+      changedAt: nowIso
+    };
+
+    sub.score = newScore;
+    if (feedback !== undefined) sub.feedback = feedback;
+    sub.gradedAt = nowIso;
+    sub.gradedBy = teacherName;
+    sub.updatedAt = nowIso;
+    sub.status = 'graded';
+    if (!sub.gradeStatus || sub.gradeStatus === 'ungraded' || sub.gradeStatus === 'draft_grade') {
+      sub.gradeStatus = 'graded';
+    }
+    sub.revisions = [revision, ...(sub.revisions || [])];
+    sub.version = (sub.version || 1) + 1;
+
+    const subPath = `submissions/${sub.id}`;
+    setDoc(doc(firestoreDb, 'submissions', sub.id), sub, { merge: true }).catch((err) => {
+      handleFirestoreError(err, OperationType.WRITE, subPath);
+    });
+
+    this.syncAssignmentCounts(sub.assignmentId);
+    this.addAuditLog(
+      'Sửa điểm bài tập (Có lý do)',
+      'grade',
+      `${teacherName} điều chỉnh điểm của ${sub.studentName} từ ${oldScore ?? 'Chưa có'} → ${newScore}. Lý do: ${reason}`
+    );
+    this.notify();
+    return sub;
+  }
+
+  public publishAssignmentGrades(
+    assignmentId: string,
+    submissionIds: string[],
+    notifyStudents: boolean,
+    teacherName: string
+  ): number {
+    const asn = this.assignments.find((a) => a.id === assignmentId);
+    if (!asn) return 0;
+    const nowIso = new Date().toISOString();
+    let count = 0;
+
+    this.submissions
+      .filter(
+        (s) =>
+          s.assignmentId === assignmentId &&
+          (submissionIds.length === 0 || submissionIds.includes(s.id)) &&
+          s.score !== undefined
+      )
+      .forEach((sub) => {
+        sub.status = 'graded';
+        sub.gradeStatus = 'published';
+        sub.publishedAt = nowIso;
+        sub.updatedAt = nowIso;
+        count += 1;
+        setDoc(doc(firestoreDb, 'submissions', sub.id), sub, { merge: true }).catch(console.warn);
+      });
+
+    if (count > 0) {
+      this.syncAssignmentCounts(assignmentId);
+      if (notifyStudents) {
+        this.addAnnouncement({
+          title: `Đã công bố điểm & nhận xét: ${asn.title}`,
+          content: `${teacherName} vừa trả bài và công bố điểm cho ${count} học sinh lớp ${asn.className} ở bài "${asn.title}". Các em vào mục Bài tập để xem chi tiết.`,
+          authorId: asn.teacherId,
+          authorName: teacherName,
+          targetRole: 'students',
+          targetClassId: asn.classId,
+          targetClassName: asn.className,
+          isUrgent: false
+        });
+      }
+      this.addAuditLog(
+        'Trả bài & Công bố điểm',
+        'grade',
+        `${teacherName} đã công bố điểm cho ${count} bài nộp của "${asn.title}" (Lớp ${asn.className})`
+      );
+      this.notify();
+    }
+    return count;
+  }
+
+  public requestSubmissionRedo(
+    assignmentId: string,
+    studentId: string,
+    studentName: string,
+    allowedExtraAttempts: number,
+    newDueDate: string,
+    feedback: string,
+    teacherName: string
+  ): Submission {
+    const nowIso = new Date().toISOString();
+    const existing = this.submissions.find(
+      (s) => s.assignmentId === assignmentId && s.studentId === studentId
+    );
+    let targetSub: Submission;
+
+    if (existing) {
+      existing.status = 'redo_requested';
+      existing.gradeStatus = 'ungraded';
+      existing.feedback = feedback;
+      existing.dueOverrideAt = newDueDate;
+      existing.allowedExtraAttempts = (existing.allowedExtraAttempts || 0) + allowedExtraAttempts;
+      existing.updatedAt = nowIso;
+      targetSub = existing;
+      setDoc(doc(firestoreDb, 'submissions', existing.id), existing, { merge: true }).catch(console.warn);
+    } else {
+      targetSub = {
+        id: `sub-${assignmentId}-${studentId}`,
+        assignmentId,
+        studentId,
+        studentName,
+        submittedAt: nowIso,
+        updatedAt: nowIso,
+        status: 'redo_requested',
+        gradeStatus: 'ungraded',
+        feedback,
+        dueOverrideAt: newDueDate,
+        allowedExtraAttempts,
+        attemptCount: 0,
+        content: ''
+      };
+      this.submissions.push(targetSub);
+      setDoc(doc(firestoreDb, 'submissions', targetSub.id), targetSub).catch(console.warn);
+    }
+
+    // Also record personal deadline override on assignment
+    this.extendAssignmentDeadline(
+      assignmentId,
+      newDueDate,
+      `Yêu cầu làm lại bài (${feedback})`,
+      teacherName,
+      [studentId]
+    );
+
+    this.syncAssignmentCounts(assignmentId);
+    this.addAuditLog(
+      'Yêu cầu học sinh làm lại bài',
+      'assignment',
+      `${teacherName} yêu cầu ${studentName} làm lại bài (thêm ${allowedExtraAttempts} lượt, hạn mới: ${new Date(newDueDate).toLocaleString('vi-VN')})`
+    );
+    this.notify();
+    return targetSub;
   }
 
   public submitAssignment(
@@ -1240,19 +1852,41 @@ class ReactiveDatabase {
     const asn = this.assignments.find((a) => a.id === assignmentId);
     const now = new Date();
     const nowIso = now.toISOString();
-    const isLate = asn && asn.dueDate ? now.getTime() > new Date(asn.dueDate).getTime() : false;
+    const effectiveDueIso = asn?.dueOverrides?.[studentId]?.dueDate || asn?.dueDate;
+    const effectiveDueMs = effectiveDueIso ? new Date(effectiveDueIso).getTime() : Infinity;
+    const isLate = effectiveDueIso ? now.getTime() > effectiveDueMs : false;
+    const lateMinutes = isLate ? Math.max(1, Math.round((now.getTime() - effectiveDueMs) / 60000)) : 0;
 
-    const hasOnlyObjective = asn?.questionSnapshots && asn.questionSnapshots.length > 0 && asn.questionSnapshots.every((q) => q.type !== 'essay');
+    const hasOnlyObjective =
+      asn?.questionSnapshots &&
+      asn.questionSnapshots.length > 0 &&
+      asn.questionSnapshots.every((q) => q.type !== 'essay');
     let autoFinalScore = objectiveScore;
-    if (isLate && asn?.latePolicy === 'deduct_points' && asn.latePenaltyPercent && autoFinalScore !== undefined) {
-      autoFinalScore = Math.max(0, Number((autoFinalScore * (1 - asn.latePenaltyPercent / 100)).toFixed(2)));
+    if (
+      isLate &&
+      asn?.latePolicy === 'deduct_points' &&
+      asn.latePenaltyPercent &&
+      autoFinalScore !== undefined
+    ) {
+      autoFinalScore = Math.max(
+        0,
+        Number((autoFinalScore * (1 - asn.latePenaltyPercent / 100)).toFixed(2))
+      );
     }
 
     const submissionStatus: Submission['status'] =
       hasOnlyObjective && autoFinalScore !== undefined ? 'graded' : isLate ? 'late' : 'submitted';
+    const initialGradeStatus: Submission['gradeStatus'] =
+      hasOnlyObjective && autoFinalScore !== undefined
+        ? asn?.showResultPolicy === 'immediately'
+          ? 'published'
+          : 'graded'
+        : 'ungraded';
 
     // Ensure idempotency: only 1 record per (assignmentId, studentId)
-    const existing = this.submissions.find((s) => s.assignmentId === assignmentId && s.studentId === studentId);
+    const existing = this.submissions.find(
+      (s) => s.assignmentId === assignmentId && s.studentId === studentId
+    );
     let targetSub: Submission;
 
     if (existing) {
@@ -1270,7 +1904,10 @@ class ReactiveDatabase {
       existing.submittedAt = nowIso;
       existing.updatedAt = nowIso;
       existing.status = submissionStatus;
+      existing.gradeStatus = initialGradeStatus;
+      if (initialGradeStatus === 'published') existing.publishedAt = nowIso;
       existing.isLate = isLate;
+      existing.lateMinutes = lateMinutes;
       targetSub = existing;
 
       const subPath = `submissions/${existing.id}`;
@@ -1287,7 +1924,10 @@ class ReactiveDatabase {
         submittedAt: nowIso,
         updatedAt: nowIso,
         status: submissionStatus,
+        gradeStatus: initialGradeStatus,
+        ...(initialGradeStatus === 'published' ? { publishedAt: nowIso } : {}),
         isLate,
+        lateMinutes,
         content,
         ...(fileName ? { fileName } : {}),
         ...(fileSize ? { fileSize } : fileName ? { fileSize: '1.2 MB' } : {}),
@@ -1307,25 +1947,7 @@ class ReactiveDatabase {
       });
     }
 
-    if (asn) {
-      const uniqueSubmitted = new Set(
-        this.submissions
-          .filter(
-            (s) =>
-              s.assignmentId === assignmentId &&
-              (s.status === 'submitted' || s.status === 'late' || s.status === 'graded' || s.status === 'redo_requested')
-          )
-          .map((s) => s.studentId)
-      );
-      asn.submissionCount = uniqueSubmitted.size;
-      asn.gradedCount = this.submissions.filter((s) => s.assignmentId === assignmentId && s.status === 'graded').length;
-      setDoc(
-        doc(firestoreDb, 'assignments', asn.id),
-        { submissionCount: asn.submissionCount, gradedCount: asn.gradedCount },
-        { merge: true }
-      ).catch(console.warn);
-    }
-
+    this.syncAssignmentCounts(assignmentId);
     this.notify();
     return targetSub;
   }

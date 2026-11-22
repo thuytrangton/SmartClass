@@ -1,5 +1,4 @@
 import * as XLSX from 'xlsx';
-import { GoogleGenAI, Type } from '@google/genai';
 import { db as firestoreDb, auth } from './firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 
@@ -1018,7 +1017,146 @@ class QuestionBankService {
   }
 
   /**
-   * Tạo hàng loạt câu hỏi bằng AI (Hỗ trợ Gemini API thực tế nếu có key + Fallback dữ liệu mô phỏng thông minh có ghi chú rõ ràng)
+   * Tự động tạo và phân bổ câu hỏi Trắc nghiệm & Tự luận chất lượng cao từ Gemini AI (gemini-4-hydrogen)
+   * thông qua backend server cho danh sách các chủ đề môn học được chọn ([Auto Tạo câu hỏi]).
+   */
+  async autoGenerateQuestionsForTopics(params: {
+    subject: string;
+    gradeLevel: number;
+    className?: string;
+    topics: Array<{
+      id: string;
+      name: string;
+      content: string;
+      chapter?: string;
+      sessionLabel?: string;
+      sharePercent?: number;
+      objectiveQuota?: number;
+      essayQuota?: number;
+    }>;
+    objectiveNeeded: number;
+    essayNeeded: number;
+    difficulty?: string;
+    extraInstruction?: string;
+    authorName?: string;
+  }): Promise<{
+    createdQuestions: QuestionItem[];
+    model: string;
+  }> {
+    const response = await fetch('/api/gemini/auto-generate-topic-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: params.subject,
+        gradeLevel: params.gradeLevel,
+        topics: params.topics,
+        objectiveNeeded: params.objectiveNeeded,
+        essayNeeded: params.essayNeeded,
+        difficulty: params.difficulty || 'all',
+        extraInstruction: params.extraInstruction || ''
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(
+        data?.error || 'Không thể gọi Gemini AI (gemini-4-hydrogen) từ server.'
+      );
+    }
+
+    const rawQuestions = Array.isArray(data?.questions) ? data.questions : [];
+    if (rawQuestions.length === 0) {
+      throw new Error('Gemini AI không trả về câu hỏi nào. Vui lòng thử lại.');
+    }
+
+    const fallbackTopic = params.topics[0] || {
+      id: 'top-default',
+      name: 'Chủ đề trọng tâm',
+      content: '',
+      chapter: 'Chương 1'
+    };
+
+    const batchPayload: Array<Partial<QuestionItem>> = rawQuestions.map(
+      (raw: any, index: number) => {
+        // Khớp tên chủ đề với danh sách chủ đề đã chọn, hoặc phân bổ xoay vòng đều giữa các chủ đề
+        const matchedTopic =
+          params.topics.find(
+            (t) =>
+              raw.topicName &&
+              t.name.trim().toLowerCase() === String(raw.topicName).trim().toLowerCase()
+          ) || params.topics[index % params.topics.length] || fallbackTopic;
+
+        const isEssay = raw.type === 'essay';
+        const qType: QuestionType = isEssay ? 'essay' : 'single_choice';
+        const validDiffs: QuestionDifficulty[] = [
+          'Nhận biết',
+          'Thông hiểu',
+          'Vận dụng',
+          'Vận dụng cao'
+        ];
+        const qDiff: QuestionDifficulty = validDiffs.includes(raw.difficulty)
+          ? raw.difficulty
+          : 'Thông hiểu';
+
+        const rawOpts = Array.isArray(raw.options) ? raw.options : [];
+        const normalizedOptions: QuestionOption[] = isEssay
+          ? []
+          : [0, 1, 2, 3].map((optIdx) => {
+              const label = String.fromCharCode(65 + optIdx);
+              const existing = rawOpts[optIdx];
+              return {
+                id: `opt-${Date.now()}-${index}-${optIdx}`,
+                label,
+                text: existing?.text || `Phương án ${label}`,
+                isCorrect: Boolean(existing?.isCorrect)
+              };
+            });
+
+        // Đảm bảo câu trắc nghiệm luôn có ít nhất 1 đáp án đúng
+        if (!isEssay && !normalizedOptions.some((o) => o.isCorrect)) {
+          normalizedOptions[0].isCorrect = true;
+        }
+
+        return {
+          subject: params.subject,
+          gradeLevel: params.gradeLevel,
+          className: params.className || `${params.gradeLevel}A1`,
+          chapter: matchedTopic.chapter || matchedTopic.sessionLabel || 'Chương 1',
+          topic: matchedTopic.name,
+          type: qType,
+          difficulty: qDiff,
+          status: 'approved',
+          content: String(raw.content || '').trim(),
+          options: normalizedOptions,
+          statements: [],
+          acceptedAnswers: [],
+          rubric: isEssay
+            ? String(raw.rubric || 'Trình bày đầy đủ các bước lập luận và kết quả chính xác.')
+            : '',
+          maxPoints: isEssay ? 2.0 : 1.0,
+          explanation: String(
+            raw.explanation || 'Áp dụng kiến thức trọng tâm của chủ đề bài học.'
+          ),
+          tags:
+            Array.isArray(raw.tags) && raw.tags.length > 0
+              ? raw.tags
+              : [matchedTopic.name, params.subject, 'Gemini AI'],
+          source: 'ai',
+          sourceNote: 'Sinh tự động bởi Gemini AI (gemini-4-hydrogen)',
+          authorName: params.authorName || 'Cô Nguyễn Thị Mai'
+        };
+      }
+    );
+
+    const createdQuestions = this.createBatch(batchPayload);
+    return {
+      createdQuestions,
+      model: data?.model || 'gemini-4-hydrogen'
+    };
+  }
+
+  /**
+   * Tạo hàng loạt câu hỏi bằng AI thông qua backend server (gemini-4-hydrogen)
    */
   async generateQuestionsWithAI(config: AiGenerateConfig): Promise<{
     questions: QuestionItem[];
@@ -1026,148 +1164,100 @@ class QuestionBankService {
     sourceLabel: string;
   }> {
     const existingBank = this.load();
-    const apiKey = typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : undefined;
 
-    if (apiKey && apiKey.trim().length > 10) {
-      try {
-        const ai = new GoogleGenAI({ apiKey });
-        const prompt = `Bạn là chuyên gia khảo thí và biên soạn đề thi THPT/THCS Việt Nam.
-Hãy tạo ${config.count} câu hỏi môn ${config.subject} lớp ${config.gradeLevel}.
-- Chương/Bài: ${config.chapter}
-- Chủ đề trọng tâm: ${config.topic}
-- Dạng câu hỏi yêu cầu: ${config.questionType === 'mixed' ? 'Kết hợp đa dạng các dạng (single_choice, multiple_choice, true_false, fill_blank, essay)' : QUESTION_TYPE_LABELS[config.questionType]}
-- Mức độ nhận thức: ${config.difficulty === 'mixed' ? 'Phân bổ từ Nhận biết, Thông hiểu đến Vận dụng' : config.difficulty}
-${config.sourceMaterial ? `- Ngữ liệu / Tài liệu nguồn: ${config.sourceMaterial}` : ''}
-${config.extraInstructions ? `- Yêu cầu bổ sung: ${config.extraInstructions}` : ''}
+    try {
+      const response = await fetch('/api/gemini/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
 
-Lưu ý quan trọng:
-- Với dạng single_choice: tạo 4 phương án A, B, C, D và đúng 1 phương án isCorrect = true.
-- Với dạng multiple_choice: tạo 4 phương án A, B, C, D và từ 2-3 phương án isCorrect = true.
-- Với dạng true_false: tạo 4 mệnh đề a, b, c, d với trường isTrue (true/false).
-- Với dạng fill_blank: cung cấp mảng acceptedAnswers chứa các cách ghi đáp án ngắn đúng.
-- Với dạng essay: cung cấp hướng dẫn chấm chi tiết vào trường rubric.
-- Luôn có giải thích chi tiết (explanation) bằng tiếng Việt chuẩn mực.`;
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Backend Gemini API error');
+      }
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING },
-                  difficulty: { type: Type.STRING },
-                  content: { type: Type.STRING },
-                  options: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        label: { type: Type.STRING },
-                        text: { type: Type.STRING },
-                        isCorrect: { type: Type.BOOLEAN }
-                      }
-                    }
-                  },
-                  statements: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        label: { type: Type.STRING },
-                        content: { type: Type.STRING },
-                        isTrue: { type: Type.BOOLEAN }
-                      }
-                    }
-                  },
-                  acceptedAnswers: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
-                  },
-                  rubric: { type: Type.STRING },
-                  explanation: { type: Type.STRING },
-                  tags: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
-                  }
-                },
-                required: ['type', 'difficulty', 'content', 'explanation']
-              }
-            }
-          }
+      const parsed = data?.questions;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const now = new Date().toISOString();
+        const result: QuestionItem[] = parsed.map((raw: any, i: number) => {
+          const qType: QuestionType = [
+            'single_choice',
+            'multiple_choice',
+            'true_false',
+            'fill_blank',
+            'essay'
+          ].includes(raw.type)
+            ? raw.type
+            : config.questionType === 'mixed'
+            ? 'single_choice'
+            : config.questionType;
+          const qDiff: QuestionDifficulty = [
+            'Nhận biết',
+            'Thông hiểu',
+            'Vận dụng',
+            'Vận dụng cao'
+          ].includes(raw.difficulty)
+            ? raw.difficulty
+            : config.difficulty === 'mixed'
+            ? 'Thông hiểu'
+            : config.difficulty;
+
+          const draftItem: QuestionItem = {
+            id: `ai-stage-${Date.now()}-${i}`,
+            code: `AI-${i + 1}`,
+            subject: config.subject,
+            gradeLevel: config.gradeLevel,
+            className: `${config.gradeLevel}A1`,
+            chapter: config.chapter || 'Chương 1',
+            topic: config.topic || 'Chủ đề trọng tâm',
+            type: qType,
+            difficulty: qDiff,
+            status: 'pending',
+            content: raw.content || '',
+            options: (raw.options || []).map((o: any, idx: number) => ({
+              id: `opt-${i}-${idx}`,
+              label: o.label || String.fromCharCode(65 + idx),
+              text: o.text || '',
+              isCorrect: Boolean(o.isCorrect)
+            })),
+            statements: (raw.statements || []).map((s: any, idx: number) => ({
+              id: `st-${i}-${idx}`,
+              label: s.label || String.fromCharCode(97 + idx),
+              content: s.content || '',
+              isTrue: Boolean(s.isTrue)
+            })),
+            acceptedAnswers: Array.isArray(raw.acceptedAnswers) ? raw.acceptedAnswers : [],
+            rubric: raw.rubric || '',
+            maxPoints: qType === 'essay' ? 2.0 : qType === 'true_false' ? 1.0 : 0.25,
+            explanation: raw.explanation || '',
+            tags:
+              Array.isArray(raw.tags) && raw.tags.length > 0
+                ? raw.tags
+                : [config.topic, 'AI đề xuất'],
+            source: 'ai',
+            sourceNote: 'Sinh bởi Gemini AI (gemini-4-hydrogen)',
+            createdAt: now,
+            updatedAt: now,
+            duplicateStatus: 'unique',
+            validationIssues: []
+          };
+          const dup = evaluateDuplicateForQuestion(draftItem, existingBank);
+          return {
+            ...draftItem,
+            ...dup,
+            validationIssues: validateQuestionItem(draftItem)
+          };
         });
 
-        const parsed = JSON.parse(response.text || '[]');
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const now = new Date().toISOString();
-          const result: QuestionItem[] = parsed.map((raw: any, i: number) => {
-            const qType: QuestionType = ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'essay'].includes(raw.type)
-              ? raw.type
-              : config.questionType === 'mixed'
-              ? 'single_choice'
-              : config.questionType;
-            const qDiff: QuestionDifficulty = ['Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao'].includes(raw.difficulty)
-              ? raw.difficulty
-              : config.difficulty === 'mixed'
-              ? 'Thông hiểu'
-              : config.difficulty;
-
-            const draftItem: QuestionItem = {
-              id: `ai-stage-${Date.now()}-${i}`,
-              code: `AI-${i + 1}`,
-              subject: config.subject,
-              gradeLevel: config.gradeLevel,
-              className: `${config.gradeLevel}A1`,
-              chapter: config.chapter || 'Chương 1',
-              topic: config.topic || 'Chủ đề trọng tâm',
-              type: qType,
-              difficulty: qDiff,
-              status: 'pending',
-              content: raw.content || '',
-              options: (raw.options || []).map((o: any, idx: number) => ({
-                id: `opt-${i}-${idx}`,
-                label: o.label || String.fromCharCode(65 + idx),
-                text: o.text || '',
-                isCorrect: Boolean(o.isCorrect)
-              })),
-              statements: (raw.statements || []).map((s: any, idx: number) => ({
-                id: `st-${i}-${idx}`,
-                label: s.label || String.fromCharCode(97 + idx),
-                content: s.content || '',
-                isTrue: Boolean(s.isTrue)
-              })),
-              acceptedAnswers: Array.isArray(raw.acceptedAnswers) ? raw.acceptedAnswers : [],
-              rubric: raw.rubric || '',
-              maxPoints: qType === 'essay' ? 2.0 : qType === 'true_false' ? 1.0 : 0.25,
-              explanation: raw.explanation || '',
-              tags: Array.isArray(raw.tags) && raw.tags.length > 0 ? raw.tags : [config.topic, 'AI đề xuất'],
-              source: 'ai',
-              sourceNote: 'Sinh bởi Gemini AI (Chờ duyệt)',
-              createdAt: now,
-              updatedAt: now,
-              duplicateStatus: 'unique',
-              validationIssues: []
-            };
-            const dup = evaluateDuplicateForQuestion(draftItem, existingBank);
-            return {
-              ...draftItem,
-              ...dup,
-              validationIssues: validateQuestionItem(draftItem)
-            };
-          });
-
-          return {
-            questions: result,
-            isRealAi: true,
-            sourceLabel: 'Được tạo trực tiếp bởi Gemini AI (gemini-3.8-flash)'
-          };
-        }
-      } catch (err) {
-        console.warn('Gemini API fallback to simulated generator:', err);
+        return {
+          questions: result,
+          isRealAi: true,
+          sourceLabel: 'Được tạo trực tiếp bởi Gemini AI (gemini-4-hydrogen)'
+        };
       }
+    } catch (err) {
+      console.warn('Gemini backend API fallback notice:', err);
     }
 
     // Fallback: Dữ liệu mẫu mô phỏng thông minh có ghi chú rõ ràng

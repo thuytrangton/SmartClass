@@ -23,6 +23,9 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  PanelLeftClose,
   CheckCircle2,
   X
 } from 'lucide-react';
@@ -31,7 +34,10 @@ import { useClass } from '../../contexts/ClassContext';
 
 interface SidebarProps {
   isOpen: boolean;
+  isDesktopOpen?: boolean;
   onClose: () => void;
+  onToggleDesktop?: () => void;
+  onCollapseAll?: () => void;
 }
 
 interface NavSubItem {
@@ -51,6 +57,7 @@ interface NavItem {
 interface NavModuleGroup {
   id: string;
   title: string;
+  countLabel?: number;
   items: NavItem[];
 }
 
@@ -58,6 +65,7 @@ const TEACHER_GROUPS: NavModuleGroup[] = [
   {
     id: 'classes_group',
     title: 'LỚP HỌC',
+    countLabel: 4,
     items: [
       { to: '/teacher/classes', label: 'Lớp của tôi', icon: BookOpen },
       { to: '/teacher/students', label: 'Học sinh', icon: Users },
@@ -76,6 +84,7 @@ const TEACHER_GROUPS: NavModuleGroup[] = [
   {
     id: 'academics_group',
     title: 'DẠY & HỌC',
+    countLabel: 5,
     items: [
       { to: '/teacher/quizzes', label: 'Ngân hàng câu hỏi', icon: Database },
       {
@@ -157,7 +166,13 @@ const ADMIN_GROUPS: NavModuleGroup[] = [
   }
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen,
+  isDesktopOpen = true,
+  onClose,
+  onToggleDesktop,
+  onCollapseAll
+}) => {
   const { role } = useAuth();
   const { classes, selectedClass, selectedClassId, setSelectedClassId } = useClass();
   const location = useLocation();
@@ -178,28 +193,53 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       ? '/admin/dashboard'
       : '/teacher/dashboard';
 
-  // Mở sẵn nhóm LỚP HỌC và DẠY & HỌC như giao diện mẫu OmniClass
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    classes_group: true,
-    academics_group: true,
-    interactive_group: false,
-    std_main: true,
-    std_resources: true,
-    parent_main: true,
-    adm_management: true
-  });
+  // 1. Mặc định menu đóng khi vừa mở Sidebar hoặc tải lại trang (tất cả nhóm chức năng thu gọn)
+  // 2. Quản lý trạng thái độc lập: chỉ mở tối đa 1 nhóm chức năng (activeGroupId) và 1 chức năng con (activeSubMenuPath)
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [activeSubMenuPath, setActiveSubMenuPath] = useState<string | null>(null);
 
-  const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({
-    '/teacher/attendance': true,
-    '/teacher/assignments': true
-  });
+  // 3. Tự động đóng toàn bộ chức năng/nhóm đang mở khi đóng/thoát Sidebar (trên Mobile, Tablet hoặc Desktop) hoặc khi đổi Role
+  React.useEffect(() => {
+    if (!isOpen) {
+      setActiveGroupId(null);
+      setActiveSubMenuPath(null);
+    }
+  }, [isOpen]);
 
+  React.useEffect(() => {
+    if (!isDesktopOpen) {
+      setActiveGroupId(null);
+      setActiveSubMenuPath(null);
+    }
+  }, [isDesktopOpen]);
+
+  React.useEffect(() => {
+    setActiveGroupId(null);
+    setActiveSubMenuPath(null);
+  }, [role]);
+
+  // Khi bấm vào một nhóm menu: thu gọn nhóm cũ ngay lập tức, mở nhóm mới (hoặc thu gọn nếu đang mở), đồng thời tắt chức năng con bên trong
   const toggleGroup = (groupId: string) => {
-    setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+    setActiveSubMenuPath(null);
+    setActiveGroupId((prev) => (prev === groupId ? null : groupId));
   };
 
-  const toggleSubMenu = (path: string) => {
-    setOpenSubMenus((prev) => ({ ...prev, [path]: !prev[path] }));
+  // Khi bấm vào một chức năng trong nhóm: tự động đóng chức năng cũ và chỉ hiển thị chức năng mới được chọn
+  const handleFunctionClick = (item: NavItem, groupId: string, e: React.MouseEvent) => {
+    setActiveGroupId(groupId);
+    if (item.subItems && item.subItems.length > 0) {
+      if (activeSubMenuPath === item.to) {
+        e.preventDefault();
+        setActiveSubMenuPath(null);
+      } else {
+        setActiveSubMenuPath(item.to);
+      }
+    } else {
+      setActiveSubMenuPath(null);
+      if (window.innerWidth < 1024) {
+        onClose();
+      }
+    }
   };
 
   return (
@@ -207,28 +247,69 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Mobile Backdrop */}
       {isOpen && (
         <div
-          onClick={onClose}
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-30 lg:hidden"
+          onClick={() => {
+            setActiveGroupId(null);
+            setActiveSubMenuPath(null);
+            onClose();
+          }}
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs z-30 lg:hidden"
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Docked Desktop Toggle Icon Button on Left Edge / Sidebar Edge to Close or Open Left Menu */}
+      {onToggleDesktop && (
+        <button
+          type="button"
+          onClick={() => {
+            if (isDesktopOpen) {
+              setActiveGroupId(null);
+              setActiveSubMenuPath(null);
+            }
+            onToggleDesktop();
+          }}
+          title={isDesktopOpen ? 'Thu gọn menu trái để mở rộng nội dung' : 'Mở lại menu trái'}
+          aria-label={isDesktopOpen ? 'Thu gọn menu trái' : 'Mở menu trái'}
+          className={`hidden lg:flex fixed top-[84px] z-40 items-center justify-center w-7 h-11 rounded-r-xl bg-[#071824] border border-l-0 border-[#00E5F0]/50 text-[#00E5F0] hover:bg-[#00E5F0] hover:text-[#03060D] shadow-[0_0_16px_rgba(0,229,240,0.22)] transition-all duration-300 ease-in-out cursor-pointer ${
+            isDesktopOpen ? 'left-[272px] xl:left-[308px]' : 'left-0'
+          }`}
+        >
+          {isDesktopOpen ? (
+            <ChevronsLeft className="w-4 h-4" />
+          ) : (
+            <ChevronsRight className="w-4 h-4" />
+          )}
+        </button>
+      )}
+
+      {/* Sidebar Container (308px on xl desktop, #04070E surface) */}
       <aside
-        className={`fixed top-16 bottom-0 left-0 z-30 w-60 bg-[#050a12] text-slate-300 flex flex-col transition-transform duration-300 ease-in-out border-r border-cyan-500/20 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
+        className={`fixed top-[70px] bottom-0 left-0 z-30 w-[280px] lg:w-[272px] xl:w-[308px] bg-[#04070E] text-[#96A3B8] flex flex-col transition-transform duration-300 ease-in-out border-r border-[#164452] ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${isDesktopOpen ? 'lg:translate-x-0' : 'lg:-translate-x-full'}`}
       >
         {/* CLASSROOM NODE Top Section */}
-        <div className="px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider mb-1">
-            <span className="text-cyan-400 font-bold">CLASSROOM NODE</span>
+        <div className="px-5 pt-5 pb-3.5">
+          <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider mb-1">
+            <span className="text-[#00E5F0] font-bold">CLASSROOM NODE</span>
             <div className="flex items-center gap-2">
-              <span className="text-rose-400 font-bold">{selectedClass?.studentCount || 32} HS</span>
+              <span className="text-[#FF0066] font-bold">{selectedClass?.studentCount || 32} HS</span>
+              {/* Nút đóng/thu gọn menu trái ngay trong góc phải trên của Sidebar */}
               <button
-                onClick={onClose}
-                className="lg:hidden text-slate-400 hover:text-white"
+                type="button"
+                onClick={() => {
+                  setActiveGroupId(null);
+                  setActiveSubMenuPath(null);
+                  if (onCollapseAll) {
+                    onCollapseAll();
+                  } else {
+                    onClose();
+                  }
+                }}
+                title="Đóng menu trái để tăng diện tích nội dung"
+                className="flex items-center justify-center text-[#00E5F0] hover:text-[#03060D] hover:bg-[#00E5F0] bg-[#071824] border border-[#164452] hover:border-[#00E5F0] p-1.5 rounded-lg transition-all cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <PanelLeftClose className="w-3.5 h-3.5 hidden lg:block" />
+                <X className="w-3.5 h-3.5 lg:hidden" />
               </button>
             </div>
           </div>
@@ -237,32 +318,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <select
               value={selectedClassId}
               onChange={(e) => setSelectedClassId(e.target.value)}
-              className="w-full bg-transparent text-sm font-extrabold text-white outline-none cursor-pointer pb-2 appearance-none"
+              className="w-full bg-transparent text-base font-extrabold text-[#F4F6FB] outline-none cursor-pointer pb-2 appearance-none"
             >
               {classes.map((c) => (
-                <option key={c.id} value={c.id} className="bg-[#07111f] text-white">
+                <option key={c.id} value={c.id} className="bg-[#090D18] text-[#F4F6FB]">
                   Lớp {c.name}
                 </option>
               ))}
             </select>
-            <div className="h-[2px] w-full bg-slate-800 relative">
-              <div className="absolute top-0 left-0 h-full w-2/5 bg-cyan-400 shadow-[0_0_8px_#00e5ff]" />
+            <div className="h-[2px] w-full bg-[#164452]/60 rounded-full relative overflow-hidden">
+              <div className="absolute top-0 left-0 h-full w-2/5 bg-[#00E5F0] rounded-full shadow-[0_0_8px_#00E5F0]" />
             </div>
           </div>
         </div>
 
-        {/* Primary Overview Item (Tổng quan) with Cyan Slanted Right Edge */}
-        <div className="px-3 mb-2">
+        {/* Primary Overview Item (Tổng quan) - Bo tròn; khi chọn sẽ tự động đóng các nhóm/chức năng khác */}
+        <div className="px-4 mb-2.5">
           <NavLink
             to={dashboardPath}
             onClick={() => {
+              setActiveGroupId(null);
+              setActiveSubMenuPath(null);
               if (window.innerWidth < 1024) onClose();
             }}
             className={({ isActive }) =>
-              `omni-nav-slanted flex items-center gap-3 px-3.5 py-2.5 text-xs font-extrabold transition-all ${
+              `rounded-2xl flex items-center gap-3 px-4 py-3 text-xs font-extrabold transition-all ${
                 isActive
-                  ? 'bg-[#00e5ff] text-slate-950 shadow-[0_0_20px_rgba(0,229,255,0.3)]'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-900/80'
+                  ? 'bg-[#00E5F0] text-[#03060D] shadow-[0_0_20px_rgba(0,229,240,0.3)]'
+                  : 'text-[#96A3B8] hover:text-[#F4F6FB] hover:bg-[#101827]'
               }`
             }
           >
@@ -272,73 +355,71 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Navigation Groups */}
-        <nav className="flex-1 overflow-y-auto px-3 py-1 space-y-4">
+        <nav className="flex-1 overflow-y-auto px-4 py-1 space-y-3">
           {currentGroups.map((group) => {
-            const isGroupOpen = openGroups[group.id] ?? true;
+            const isGroupOpen = activeGroupId === group.id;
 
             return (
-              <div key={group.id} className="space-y-1">
-                {/* Group Header */}
+              <div key={group.id} className="space-y-1.5">
+                {/* Group Header - Bo tròn */}
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-mono font-bold uppercase tracking-widest text-cyan-400 hover:text-cyan-300 cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[11px] font-mono font-bold uppercase tracking-[0.16em] transition-all cursor-pointer ${
+                    isGroupOpen
+                      ? 'bg-[#091322] text-[#00E5F0] border border-[#164452]'
+                      : 'text-[#00E5F0] hover:text-[#33ECFF] hover:bg-[#101827]/60 border border-transparent'
+                  }`}
                 >
                   <span>{group.title}</span>
-                  <div className="flex items-center gap-1 text-slate-400 font-mono text-[10px]">
-                    <span>({group.items.length})</span>
+                  <div className="flex items-center gap-1 text-[#96A3B8] font-mono text-[11px]">
+                    <span>({group.countLabel ?? group.items.length})</span>
                     {isGroupOpen ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-cyan-400" />
+                      <ChevronDown className="w-3.5 h-3.5 text-[#00E5F0]" />
                     ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                      <ChevronRight className="w-3.5 h-3.5 text-[#96A3B8]" />
                     )}
                   </div>
                 </button>
 
                 {/* Group Items */}
                 {isGroupOpen && (
-                  <div className="space-y-0.5">
+                  <div className="space-y-1 pl-1">
                     {group.items.map((item) => {
                       const currentTab = new URLSearchParams(location.search).get('tab');
                       const isParentActive = location.pathname === item.to;
-                      const isSubOpen = openSubMenus[item.to] ?? true;
+                      const isSubOpen = activeSubMenuPath === item.to;
 
                       return (
-                        <div key={item.to}>
+                        <div key={item.to} className="space-y-1">
                           <div className="flex items-center justify-between">
                             <NavLink
                               to={item.to}
-                              onClick={() => {
-                                if (item.subItems) {
-                                  toggleSubMenu(item.to);
-                                } else if (window.innerWidth < 1024) {
-                                  onClose();
-                                }
-                              }}
+                              onClick={(e) => handleFunctionClick(item, group.id, e)}
                               className={({ isActive }) =>
-                                `flex-1 flex items-center justify-between px-2.5 py-2 text-xs font-medium transition-colors ${
+                                `flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
                                   isActive && !item.subItems
-                                    ? 'bg-cyan-950/60 text-cyan-300 font-bold border-l-2 border-cyan-400'
-                                    : isActive
-                                    ? 'text-white font-bold'
-                                    : 'text-slate-300 hover:text-white hover:bg-slate-900/60'
+                                    ? 'bg-[#101827] text-[#00E5F0] font-bold border border-[#00E5F0]/40 shadow-[0_0_12px_rgba(0,229,240,0.12)]'
+                                    : isActive || isSubOpen
+                                    ? 'bg-[#091322] text-[#F4F6FB] font-bold border border-[#164452]'
+                                    : 'text-[#96A3B8] hover:text-[#F4F6FB] hover:bg-[#101827]/80 border border-transparent'
                                 }`
                               }
                             >
-                              <div className="flex items-center gap-2.5 truncate">
-                                <item.icon className="w-4 h-4 text-cyan-400 shrink-0" />
+                              <div className="flex items-center gap-3 truncate">
+                                <item.icon className="w-4 h-4 text-[#00E5F0] shrink-0" />
                                 <span className="truncate">{item.label}</span>
                               </div>
 
                               <div className="flex items-center gap-1.5">
                                 {item.badge && (
-                                  <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-rose-950/90 text-rose-400 border border-rose-500/40">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#220917] text-[#FF0066] border border-[#FF0066]/40">
                                     {item.badge}
                                   </span>
                                 )}
                                 {item.subItems && (
                                   <ChevronDown
-                                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                                    className={`w-3.5 h-3.5 text-[#96A3B8] transition-transform duration-200 ${
                                       isSubOpen ? '' : '-rotate-90'
                                     }`}
                                   />
@@ -347,9 +428,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                             </NavLink>
                           </div>
 
-                          {/* Sub-items with vertical guide line */}
+                          {/* Sub-items bo tròn */}
                           {item.subItems && isSubOpen && (
-                            <div className="ml-4 pl-3 border-l border-slate-800 space-y-0.5 my-1">
+                            <div className="ml-4 pl-3 border-l border-[#164452] space-y-1 my-1">
                               {item.subItems.map((sub) => {
                                 const isSubActive = sub.tab
                                   ? isParentActive &&
@@ -361,12 +442,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                                     key={sub.to}
                                     to={sub.to}
                                     onClick={() => {
+                                      setActiveGroupId(group.id);
+                                      setActiveSubMenuPath(item.to);
                                       if (window.innerWidth < 1024) onClose();
                                     }}
-                                    className={`block py-1.5 px-2 text-xs transition-colors ${
+                                    className={`block py-2 px-3 rounded-xl text-xs transition-all ${
                                       isSubActive
-                                        ? 'text-cyan-300 font-bold'
-                                        : 'text-slate-400 hover:text-slate-200'
+                                        ? 'bg-[#071824] text-[#00E5F0] font-bold border border-[#00E5F0]/35'
+                                        : 'text-[#96A3B8] hover:text-[#F4F6FB] hover:bg-[#101827]/70 border border-transparent'
                                     }`}
                                   >
                                     {sub.label}
@@ -386,9 +469,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </nav>
 
         {/* Bottom Brand Footer */}
-        <div className="p-4 border-t border-cyan-500/15">
-          <p className="text-xs font-mono font-bold text-slate-200">OmniClass</p>
-          <p className="text-[10px] font-mono text-cyan-400 mt-0.5">
+        <div className="p-5 border-t border-[#164452]">
+          <p className="text-xs font-mono font-bold text-[#F4F6FB]">Sigma</p>
+          <p className="text-[11px] font-mono text-[#00E5F0] mt-0.5">
             AI-Powered Learning Management
           </p>
         </div>
@@ -396,5 +479,3 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     </>
   );
 };
-
-

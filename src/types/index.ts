@@ -108,7 +108,27 @@ export interface GradeHistoryEntry {
   timestamp: string;
 }
 
-export type AssignmentStatus = 'draft' | 'published' | 'scheduled' | 'closed';
+export type AssignmentStatus = 'draft' | 'published' | 'scheduled' | 'closed' | 'withdrawn';
+export type AssignmentReceiveStatus = 'draft' | 'scheduled' | 'open' | 'closed' | 'withdrawn';
+export type SubmissionGradeStatus = 'ungraded' | 'draft_grade' | 'graded' | 'published';
+
+export interface GradeRevisionEntry {
+  id: string;
+  submissionId: string;
+  oldScore?: number;
+  newScore: number;
+  reason: string;
+  changedBy: string;
+  changedAt: string;
+}
+
+export interface StudentDueOverride {
+  studentId: string;
+  dueDate: string;
+  reason: string;
+  updatedBy: string;
+  updatedAt: string;
+}
 
 export interface AssignmentTopic {
   id: string;
@@ -148,6 +168,7 @@ export interface AssignmentQuestionSnapshot {
 
 export interface Assignment {
   id: string;
+  code?: string;
   title: string;
   description: string;
   instructions?: string;
@@ -183,8 +204,16 @@ export interface Assignment {
   updatedAt?: string;
   totalPoints: number;
   status: AssignmentStatus;
+  receiveStatus?: AssignmentReceiveStatus;
+  withdrawnAt?: string;
+  withdrawReason?: string;
+  closeReason?: string;
+  dueOverrides?: Record<string, StudentDueOverride>;
+  reminderHistory?: Record<string, string>;
+  version?: number;
   submissionCount: number;
   gradedCount: number;
+  publishedCount?: number;
   totalStudents: number;
   assignedStudentIds?: string[];
   attachmentName?: string;
@@ -219,7 +248,11 @@ export interface Submission {
   studentName: string;
   submittedAt: string;
   status: SubmissionStatus;
+  gradeStatus?: SubmissionGradeStatus;
+  publishedAt?: string;
   isLate?: boolean;
+  lateMinutes?: number;
+  dueOverrideAt?: string;
   content?: string;
   fileName?: string;
   fileSize?: string;
@@ -227,11 +260,16 @@ export interface Submission {
   objectiveScore?: number;
   essayScore?: number;
   attemptCount?: number;
+  allowedExtraAttempts?: number;
   score?: number;
+  draftScore?: number;
+  draftFeedback?: string;
   feedback?: string;
   gradedAt?: string;
   gradedBy?: string;
   updatedAt?: string;
+  revisions?: GradeRevisionEntry[];
+  version?: number;
 }
 
 export interface QuizQuestion {

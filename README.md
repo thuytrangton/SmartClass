@@ -1,113 +1,28 @@
-# SMART CLASS - HỆ THỐNG QUẢN LÝ LỚP HỌC THÔNG MINH
+# OmniClass — AI-Powered Class Management System (SmartClass 4.0)
 
-Hệ thống EdTech quản lý lớp học thông minh đa phân quyền (Admin, Giáo viên, Học sinh, Phụ huynh) với hồ sơ 360°, điểm danh thông minh, sổ điểm điện tử, bài tập & thi trắc nghiệm trực tuyến, bộ công cụ lớp học trực quan và AI Trợ giảng.
+Hệ thống Quản lý Lớp học Thông minh giao diện Cyberpunk HUD (`OmniClass`), tích hợp đầy đủ nghiệp vụ cho Giáo viên, Học sinh, Phụ huynh và Quản trị viên (Admin), lưu trữ dữ liệu đồng bộ thời gian thực qua Firebase Firestore & Authentication.
 
----
+## 1. Kiến trúc & Công nghệ
+- **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS v4 + Lucide React + React Router.
+- **Design System (`src/components/cyber/CyberUI.tsx` & `src/index.css`)**:
+  - Bảng màu Cyberpunk HUD chuẩn: Nền chính `#03060D`, Sidebar `#04070E`, Header `#050811`, Card `#090D18`, Hover `#101827`, Cyan `#00E5F0`, Border `#164452`, Magenta `#FF0066`, Green `#18D9A0`, Yellow `#F5E900`, Purple `#A45CFF`, Blue `#367CFF`, Text chính `#F4F6FB`, Text phụ `#96A3B8`.
+  - Kích thước bố cục: Header cao `70px`, Sidebar rộng `308px` (Desktop), Content padding `30px`, Card grid gap `20px`, nền lưới kỹ thuật `32px`.
+  - Bộ component tái sử dụng: `CyberPanel`, `CyberButton`, `CyberBadge`, `CyberStatCard`, `QuickActionCard`, `SectionHeader`, `Breadcrumb`, `ClassCard`, `SmartAlertPanel`, `CyberInput`, `CyberSelect`, `CyberTextarea`, `CyberModal`, `CyberTabs`, `LoadingSkeleton`, `CyberEmptyState`.
+- **Dữ liệu thật & Đồng bộ**:
+  - Kết nối trực tiếp với `db` (`src/services/db.ts`) và đồng bộ Cloud Firestore (`src/firebase.ts`).
+  - Các chỉ số KPI trên Dashboard (Tổng học sinh, Có mặt hôm nay, Bài tập chờ chấm, Cảnh báo học tập) và danh sách lớp học/cảnh báo tự động lấy từ dữ liệu hệ thống hiện hữu và có fallback an toàn theo đúng mẫu tham chiếu khi lớp chưa phát sinh bản ghi trong ngày.
 
-## I. TÀI KHOẢN TRẢI NGHIỆM DEMO (1-CHẠM)
-
-Hệ thống tích hợp nút chuyển đổi nhanh vai trò ngay tại trang Đăng nhập và thanh Header:
-
-| Vai trò | Họ tên | Email | Mô tả |
-| :--- | :--- | :--- | :--- |
-| **Giáo viên (Mặc định)** | Cô Trần Thị Mai | `mai.tran@smartclass.edu.vn` | GVCN Lớp 10A1, quản lý điểm, điểm danh, AI trợ giảng, công cụ lớp |
-| **Học sinh** | Nguyễn Minh Quân | `quan.nm@student.smartclass.edu.vn` | Học sinh lớp 10A1, làm bài tập, thi trắc nghiệm, xem bảng điểm |
-| **Phụ huynh** | Nguyễn Văn Hùng | `hung.nguyen@parent.smartclass.edu.vn` | Bố em Quân, theo dõi chuyên cần, nhận xét giáo viên, nhắn tin GVCN |
-| **Admin** | Nguyễn Văn Quản Trị | `admin@smartclass.edu.vn` | Quản trị trường, niên khóa, người dùng, audit log, sao lưu JSON |
-
-*Mật khẩu thử nghiệm:* Bất kỳ (đã cấu hình chế độ đăng nhập tự động 1 chạm).
-
----
-
-## II. CÔNG NGHỆ SỬ DỤNG
-
-* **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, React Router v7, Lucide Icons, Recharts, Canvas-Confetti
-* **Architecture:** Repository / Service Abstraction Layer (`src/services/db.ts`) tách biệt hoàn toàn giữa UI và Data Layer
-* **Database Target:** PostgreSQL / Supabase với RLS (Row-Level Security) & Multi-School Isolation
-* **AI Engine:** Module AI Trợ giảng tích hợp sẵn (`src/services/aiService.ts`) hỗ trợ tạo đề trắc nghiệm, soạn giáo án chuẩn CV 5512 và gợi ý nhận xét học bạ
-
----
-
-## III. CẤU TRÚC THƯ MỤC
-
-```text
-/
-├── schema.sql                     # PostgreSQL Schema chuẩn, RLS, Indexes, Foreign Keys
-├── README.md                      # Tài liệu kỹ thuật và hướng dẫn vận hành
-├── src/
-│   ├── types/                     # TypeScript Domain Interfaces
-│   ├── data/                      # Dữ liệu mẫu khởi tạo (2 lớp 10A1, 10A2; 25 học sinh)
-│   ├── services/
-│   │   ├── db.ts                  # Reactive Database Service (in-memory + session sync)
-│   │   ├── aiService.ts           # AI Trợ giảng (Soạn đề, giáo án CV 5512, nhận xét)
-│   │   └── exportImport.ts        # Xử lý nhập/xuất CSV, validate theo dòng/cột
-│   ├── contexts/
-│   │   ├── AuthContext.tsx        # Authentication & Role Switcher
-│   │   ├── ClassContext.tsx       # Lưu giữ context lớp, môn học, học kỳ toàn cục
-│   │   └── ToastContext.tsx       # Thông báo Toast hệ thống
-│   ├── components/
-│   │   ├── common/                # UI Primitives: StatCard, Modal, ConfirmDialog, StatusChip
-│   │   └── layout/                # AppLayout, Sidebar theo vai trò, Header với Search toàn cục
-│   ├── routes/
-│   │   ├── AppRoutes.tsx          # Định tuyến phân quyền toàn bộ hệ thống
-│   │   └── RoleGuard.tsx          # Bảo vệ Route Guard & 403 Forbidden
-│   └── pages/
-│       ├── auth/                  # Login, Forbidden (403), NotFound (404)
-│       ├── teacher/               # Dashboard, 360 Profile, Attendance, Gradebook, Tools, AI...
-│       ├── student/               # Student Portal, Homework, Quiz Take, Personal Grades...
-│       ├── parent/                # Parent Portal, Child Progress, Chat with Teacher...
-│       └── admin/                 # Admin Dashboard, User RBAC, Audit Logs, Backup/Restore...
-```
-
----
-
-## IV. CÁC TÍNH NĂNG NỔI BẬT
-
-1. **Hồ sơ học sinh 360°:**
-   * Tích hợp toàn diện: Điểm số các môn, biểu đồ tiến bộ, tỷ lệ chuyên cần, nhật ký hành vi rèn luyện, liên lạc phụ huynh và ghi chú sức khỏe.
-2. **Điểm danh thông minh siêu tốc:**
-   * 5 trạng thái chuẩn: Có mặt, Đi muộn, Có phép, Không phép, Về sớm.
-   * Nút "Tất cả có mặt" 1 chạm và tự động kích hoạt cảnh báo thông minh nếu vắng không phép.
-   * Giao diện tối ưu thao tác cảm ứng lớn trên điện thoại.
-3. **Sổ điểm điện tử & Lịch sử chỉnh sửa điểm (Grade Audit):**
-   * Nhập điểm trực tiếp trên bảng, tự động tính điểm trung bình môn theo hệ số (TX hệ số 1, GK hệ số 2, CK hệ số 3).
-   * Mọi thao tác sửa điểm bắt buộc nhập lý do và được lưu vĩnh viễn vào nhật ký kiểm toán.
-4. **Bộ công cụ lớp học trực quan (Classroom Tools):**
-   * **Vòng quay may mắn (Wheel):** Vẽ bằng Canvas mượt mà, hiệu ứng pháo hoa Confetti, tự động nạp danh sách học sinh của lớp.
-   * **Gọi tên ngẫu nhiên:** Hiệu ứng lật thẻ, tùy chọn loại trừ các bạn đã được gọi.
-   * **Chia nhóm tự động:** Tùy chọn chia 2-6 nhóm, phân bổ đồng đều thành viên.
-   * **Đồng hồ đếm ngược:** Hiển thị số lớn, nút chọn nhanh 1p, 3p, 5p, 10p, 15p và chuông báo hoàn thành.
-5. **AI Trợ giảng:**
-   * Soạn đề kiểm tra trắc nghiệm 15 phút theo chủ đề và độ khó.
-   * Thiết kế Kế hoạch bài dạy (Giáo án) theo chuẩn Công văn 5512.
-   * Tự động sinh nhận xét học bạ dựa trên GPA, chuyên cần và hạnh kiểm. Giáo viên toàn quyền duyệt và sửa trước khi lưu.
-6. **Quy trình Cảnh báo thông minh 4 bước:**
-   * `Mới ghi nhận` → `Đã xem` → `Đang xử lý` → `Đã giải quyết` (kèm ghi chú xử lý).
-
----
-
-## V. HƯỚNG DẪN CÀI ĐẶT & CHẠY LOCAL
-
+## 2. Hướng dẫn chạy & Build
 ```bash
-# 1. Cài đặt dependencies
+# Cài đặt dependencies
 npm install
 
-# 2. Khởi chạy dev server (Port 3000)
+# Chạy môi trường phát triển (port 3000)
 npm run dev
 
-# 3. Kiểm tra build sản phẩm
+# Kiểm tra TypeScript / Lint
+npm run lint
+
+# Build bản Production
 npm run build
 ```
-
----
-
-## VI. TRIỂN KHAI VỚI SUPABASE / POSTGRESQL
-
-1. Tạo project mới trên [Supabase](https://supabase.com).
-2. Vào mục **SQL Editor**, dán toàn bộ nội dung trong tệp `schema.sql` và bấm **Run**.
-3. Cấu hình biến môi trường trong `.env`:
-   ```env
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-   ```
-4. Thay thế adapter trong `src/services/db.ts` sang Supabase client SDK (interface đã được thiết kế sẵn sàng tương thích).

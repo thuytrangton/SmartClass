@@ -1,6 +1,8 @@
 import React, { ReactNode } from 'react';
 import { LucideIcon, AlertCircle, X } from 'lucide-react';
 
+export * from '../cyber/CyberUI';
+
 /* --- STAT CARD --- */
 interface StatCardProps {
   title: string;
@@ -24,40 +26,42 @@ export const StatCard: React.FC<StatCardProps> = ({
   onClick
 }) => {
   const colorMap = {
-    blue: 'bg-cyan-950/70 text-cyan-400 border-cyan-800/50',
-    purple: 'bg-purple-950/70 text-purple-400 border-purple-800/50',
-    emerald: 'bg-emerald-950/70 text-emerald-400 border-emerald-800/50',
-    amber: 'bg-amber-950/70 text-amber-400 border-amber-800/50',
-    rose: 'bg-rose-950/70 text-rose-400 border-rose-800/50',
-    indigo: 'bg-indigo-950/70 text-indigo-400 border-indigo-800/50'
+    blue: 'bg-[#071824] text-[#00E5F0] border-[#00E5F0]/50',
+    purple: 'bg-[#140E26] text-[#A45CFF] border-[#A45CFF]/50',
+    emerald: 'bg-[#071D1A] text-[#18D9A0] border-[#18D9A0]/50',
+    amber: 'bg-[#1D1B07] text-[#F5E900] border-[#F5E900]/50',
+    rose: 'bg-[#220917] text-[#FF0066] border-[#FF0066]/50',
+    indigo: 'bg-[#08152C] text-[#367CFF] border-[#367CFF]/50'
   };
 
   return (
     <div
       onClick={onClick}
       className={`omni-card p-5 transition-all duration-200 ${
-        onClick ? 'cursor-pointer hover:border-cyan-500/40' : ''
+        onClick ? 'cursor-pointer hover:bg-[#101827] hover:border-[#00E5F0]/50' : ''
       }`}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-slate-300">{title}</span>
-        <div className={`p-2 border ${colorMap[color]}`}>
+        <span className="text-xs font-medium text-[#96A3B8]">{title}</span>
+        <div className={`omni-icon-box w-9 h-9 flex items-center justify-center border ${colorMap[color]}`}>
           <Icon className="w-4 h-4" />
         </div>
       </div>
       <div className="flex items-baseline gap-2">
-        <h3 className="text-2xl font-extrabold font-mono text-white tracking-tight">{value}</h3>
+        <h3 className="text-[36px] leading-none font-extrabold font-mono text-[#F4F6FB] tracking-tight">
+          {value}
+        </h3>
         {change && (
           <span
             className={`text-xs font-mono font-bold ${
-              changePositive ? 'text-emerald-400' : 'text-rose-400'
+              changePositive ? 'text-[#18D9A0]' : 'text-[#FF0066]'
             }`}
           >
             {change}
           </span>
         )}
       </div>
-      {subtitle && <p className="text-xs text-slate-400 mt-2 font-normal">{subtitle}</p>}
+      {subtitle && <p className="text-xs text-[#96A3B8] mt-3 font-normal">{subtitle}</p>}
     </div>
   );
 };
@@ -72,17 +76,17 @@ interface PageHeaderProps {
 
 export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, children }) => {
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-800">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-5 border-b border-[#164452]">
       <div>
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight">{title}</h1>
+          <h1 className="text-2xl font-extrabold text-[#F4F6FB] tracking-tight">{title}</h1>
           {badge && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 whitespace-nowrap shrink-0">
+            <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-mono font-bold bg-[#071824] text-[#00E5F0] border border-[#00E5F0]/50 whitespace-nowrap shrink-0">
               {badge}
             </span>
           )}
         </div>
-        {subtitle && <p className="text-sm text-slate-400 mt-1">{subtitle}</p>}
+        {subtitle && <p className="text-sm text-[#96A3B8] mt-1">{subtitle}</p>}
       </div>
       {children && <div className="flex items-center gap-2.5 flex-wrap">{children}</div>}
     </div>
@@ -106,16 +110,17 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onAction
 }) => {
   return (
-    <div className="text-center py-12 px-4 rounded-2xl bg-[#0f172a] border border-dashed border-slate-800">
-      <div className="w-12 h-12 rounded-full bg-slate-800/80 text-slate-400 flex items-center justify-center mx-auto mb-3">
+    <div className="text-center py-12 px-4 omni-card">
+      <div className="w-12 h-12 bg-[#050811] border border-[#164452] text-[#00E5F0] flex items-center justify-center mx-auto mb-3">
         <Icon className="w-6 h-6" />
       </div>
-      <h3 className="text-base font-semibold text-slate-200">{title}</h3>
-      <p className="text-sm text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">{description}</p>
+      <h3 className="text-base font-semibold text-[#F4F6FB]">{title}</h3>
+      <p className="text-sm text-[#96A3B8] mt-1 max-w-sm mx-auto leading-relaxed">{description}</p>
       {actionText && onAction && (
         <button
+          type="button"
           onClick={onAction}
-          className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-sm font-semibold rounded-xl shadow-md transition-colors cursor-pointer"
+          className="mt-4 omni-btn-slanted inline-flex items-center gap-2 px-4 py-2 bg-[#00E5F0] hover:bg-[#33ECFF] text-[#03060D] text-xs font-extrabold transition-colors cursor-pointer"
         >
           {actionText}
         </button>
@@ -155,24 +160,25 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
       <div
-        className={`bg-[#0f172a] rounded-2xl shadow-2xl border border-slate-800 w-full ${widthMap[maxWidth]} overflow-hidden animate-in fade-in zoom-in-95 duration-150`}
+        className={`omni-card shadow-2xl w-full ${widthMap[maxWidth]} overflow-hidden animate-in fade-in zoom-in-95 duration-150`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-slate-800">
+        <div className="flex items-center justify-between p-5 border-b border-[#164452]">
           <div>
-            <h3 className="text-lg font-bold text-slate-100">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+            <h3 className="text-lg font-bold text-[#F4F6FB]">{title}</h3>
+            {subtitle && <p className="text-xs text-[#96A3B8] mt-0.5">{subtitle}</p>}
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 text-[#96A3B8] hover:text-[#00E5F0] hover:bg-[#101827] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6 max-h-[80vh] overflow-y-auto text-slate-200">{children}</div>
+        <div className="p-6 max-h-[80vh] overflow-y-auto text-[#F4F6FB]">{children}</div>
       </div>
     </div>
   );
@@ -204,21 +210,25 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="md">
-      <p className="text-sm text-slate-300 leading-relaxed">{message}</p>
+      <p className="text-sm text-[#96A3B8] leading-relaxed">{message}</p>
       <div className="mt-6 flex justify-end gap-3">
         <button
+          type="button"
           onClick={onClose}
-          className="px-4 py-2 rounded-xl border border-slate-700 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+          className="px-4 py-2 border border-[#164452] text-xs font-semibold text-[#96A3B8] hover:text-[#F4F6FB] hover:bg-[#101827] transition-colors cursor-pointer"
         >
           {cancelText}
         </button>
         <button
+          type="button"
           onClick={() => {
             onConfirm();
             onClose();
           }}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-xs transition-colors cursor-pointer ${
-            isDanger ? 'bg-rose-600 hover:bg-rose-500' : 'bg-cyan-600 hover:bg-cyan-500'
+          className={`px-4 py-2 text-xs font-extrabold transition-colors cursor-pointer ${
+            isDanger
+              ? 'bg-[#FF0066] hover:bg-[#FF3385] text-white'
+              : 'bg-[#00E5F0] hover:bg-[#33ECFF] text-[#03060D] omni-btn-slanted'
           }`}
         >
           {confirmText}
@@ -241,26 +251,26 @@ export const StatusChip: React.FC<StatusChipProps> = ({ status, label }) => {
       case 'active':
       case 'published':
       case 'graded':
-        return 'bg-emerald-950/70 text-emerald-300 border-emerald-800/60';
+        return 'bg-[#071D1A] text-[#18D9A0] border-[#18D9A0]/50';
       case 'submitted':
       case 'excused':
       case 'info':
-        return 'bg-cyan-950/70 text-cyan-300 border-cyan-800/60';
+        return 'bg-[#071824] text-[#00E5F0] border-[#00E5F0]/50';
       case 'late':
       case 'warning':
       case 'redo_requested':
-        return 'bg-amber-950/70 text-amber-300 border-amber-800/60';
+        return 'bg-[#1D1B07] text-[#F5E900] border-[#F5E900]/50';
       case 'unexcused':
       case 'critical':
       case 'closed':
-        return 'bg-rose-950/70 text-rose-300 border-rose-800/60';
+        return 'bg-[#220917] text-[#FF0066] border-[#FF0066]/50';
       case 'early_leave':
-        return 'bg-purple-950/70 text-purple-300 border-purple-800/60';
+        return 'bg-[#140E26] text-[#A45CFF] border-[#A45CFF]/50';
       case 'draft':
       case 'pending':
       case 'missing':
       default:
-        return 'bg-slate-800 text-slate-300 border-slate-700';
+        return 'bg-[#050811] text-[#96A3B8] border-[#164452]';
     }
   };
 
@@ -306,9 +316,8 @@ export const StatusChip: React.FC<StatusChipProps> = ({ status, label }) => {
   };
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStyle()}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-mono font-bold border ${getStyle()}`}>
       {getLabel()}
     </span>
   );
 };
-

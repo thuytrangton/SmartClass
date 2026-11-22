@@ -45,12 +45,14 @@ export const StudentAssignments: React.FC = () => {
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} – ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
-  // Học sinh chỉ nhìn thấy bài tập ĐÃ PHÁT HÀNH (published) thuộc lớp của mình
+  // Học sinh chỉ nhìn thấy bài tập ĐÃ PHÁT HÀNH (published) hoặc ĐÃ ĐÓNG (closed) thuộc lớp của mình, ẩn bài đã thu hồi (withdrawn)
   const studentAssignments = useMemo(() => {
     if (!student) return [];
     const allClassAssignments = db.getAssignments(student.classId);
     return allClassAssignments.filter((asn) => {
-      if (asn.status !== 'published') return false;
+      if (asn.status === 'draft' || asn.status === 'withdrawn' || asn.receiveStatus === 'withdrawn') {
+        return false;
+      }
       if (asn.assignedStudentIds && asn.assignedStudentIds.length > 0) {
         return asn.assignedStudentIds.includes(student.id);
       }
@@ -66,8 +68,21 @@ export const StudentAssignments: React.FC = () => {
         .getSubmissions(asn.id)
         .find((s) => s.studentId === student?.id);
 
-      const dueMs = asn.dueDate ? new Date(asn.dueDate).getTime() : Infinity;
+      const effectiveDueIso =
+        (student && asn.dueOverrides?.[student.id]?.dueDate) ||
+        sub?.dueOverrideAt ||
+        asn.dueDate;
+      const dueMs = effectiveDueIso ? new Date(effectiveDueIso).getTime() : Infinity;
       const isOverdueNow = Date.now() > dueMs;
+
+      // Chỉ hiển thị điểm cho học sinh khi đã công bố (published) hoặc chính sách cho phép xem ngay
+      const isScoreVisibleToStudent = Boolean(
+        sub &&
+          sub.status === 'graded' &&
+          (!sub.gradeStatus ||
+            sub.gradeStatus === 'published' ||
+            asn.showResultPolicy === 'immediately')
+      );
 
       let status: 'pending' | 'submitted' | 'late' | 'graded' | 'redo_requested' = 'pending';
       let isLateSubmission = false;
@@ -77,7 +92,7 @@ export const StudentAssignments: React.FC = () => {
         isLateSubmission = sub.isLate ?? subMs > dueMs;
 
         if (sub.status === 'graded') {
-          status = 'graded';
+          status = isScoreVisibleToStudent ? 'graded' : isLateSubmission ? 'late' : 'submitted';
         } else if (sub.status === 'redo_requested') {
           status = 'redo_requested';
         } else if (sub.status === 'late' || isLateSubmission) {
@@ -87,9 +102,17 @@ export const StudentAssignments: React.FC = () => {
         }
       }
 
+      const isClosedForStudent =
+        (asn.status === 'closed' || asn.receiveStatus === 'closed') &&
+        status !== 'redo_requested' &&
+        !(student && asn.dueOverrides?.[student.id] && new Date(asn.dueOverrides[student.id].dueDate).getTime() > Date.now());
+
       return {
         assignment: asn,
         submission: sub || null,
+        effectiveDueIso,
+        isScoreVisibleToStudent,
+        isClosedForStudent,
         status,
         isLateSubmission,
         isOverdueNow
@@ -277,7 +300,17 @@ export const StudentAssignments: React.FC = () => {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {filteredList.map(({ assignment: asn, submission: sub, status, isLateSubmission, isOverdueNow }) => (
+          {filteredList.map(
+            ({
+              assignment: asn,
+              submission: sub,
+              effectiveDueIso,
+              isScoreVisibleToStudent,
+              isClosedForStudent,
+              status,
+              isLateSubmission,
+              isOverdueNow
+            }) => (
             <div
               key={asn.id}
               className="bg-[#0f172a] p-6 rounded-2xl border border-slate-800 hover:border-slate-700 shadow-lg flex flex-col justify-between transition-all"
@@ -330,7 +363,7 @@ export const StudentAssignments: React.FC = () => {
                       <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">
                         Thời hạn làm bài đến
                       </p>
-                      <p className="text-xs font-extrabold">{formatDateTimeVN(asn.dueDate)} (GMT+7)</p>
+                      <p className="text-xs font-extrabold">{formatDateTimeVN(effectiveDueIso)} (GMT+7)</p>
                     </div>
                   </div>
                   {status === 'pending' && isOverdueNow && (
@@ -359,7 +392,7 @@ export const StudentAssignments: React.FC = () => {
                 </div>
 
                 {/* Kết quả chấm hoặc yêu cầu làm lại từ giáo viên */}
-                {sub && status === 'graded' && (
+                {sub && isScoreVisibleToStudent && (
                   <div className="mt-3 p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-800/60 flex items-center justify-between">
                     <div className="space-y-0.5">
                       <p className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
@@ -376,6 +409,12 @@ export const StudentAssignments: React.FC = () => {
                         {sub.score}/{asn.totalPoints}
                       </span>
                     </div>
+                  </div>
+                )}
+
+                {sub && sub.status === 'graded' && !isScoreVisibleToStudent && (
+                  <div className="mt-3 p-3 rounded-xl bg-cyan-950/30 border border-cyan-700/50 text-xs text-cyan-200">
+                    Bài nộp đã được giáo viên chấm – Điểm số sẽ hiển thị ngay khi giáo viên công bố kết quả.
                   </div>
                 )}
 
@@ -401,7 +440,11 @@ export const StudentAssignments: React.FC = () => {
                   )}
                 </div>
 
-                {status === 'pending' || status === 'redo_requested' ? (
+                {isClosedForStudent && !sub ? (
+                  <span className="px-3.5 py-2 rounded-xl bg-slate-900 text-rose-400 border border-rose-800/50 text-xs font-bold">
+                    Đã đóng nhận bài
+                  </span>
+                ) : status === 'pending' || status === 'redo_requested' ? (
                   <button
                     onClick={() => handleOpenAssignmentModal(asn, sub)}
                     className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer"
@@ -415,7 +458,7 @@ export const StudentAssignments: React.FC = () => {
                     className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
                     <FileText className="w-3.5 h-3.5 text-cyan-400" />
-                    {status === 'graded' ? 'Xem chi tiết bài làm' : 'Xem / Cập nhật bài nộp'}
+                    {isScoreVisibleToStudent ? 'Xem chi tiết bài làm' : 'Xem / Cập nhật bài nộp'}
                   </button>
                 )}
               </div>
